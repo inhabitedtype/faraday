@@ -10,7 +10,7 @@ Install the library and its depenencies via [OPAM][opam]:
 [opam]: http://opam.ocaml.org/
 
 ```bash
-opam install angstrom
+opam install faraday
 ```
 
 ## Development
