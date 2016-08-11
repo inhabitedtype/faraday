@@ -1,0 +1,24 @@
+# OASIS_START
+# DO NOT EDIT (digest: c04c6cafba8e674598bf75b717acdafa)
+# Ignore VCS directories, you can use the same kind of rule outside
+# OASIS_START/STOP if you want to exclude directories that contains
+# useless stuff for the build process
+true: annot, bin_annot
+<**/.svn>: -traverse
+<**/.svn>: not_hygienic
+".bzr": -traverse
+".bzr": not_hygienic
+".hg": -traverse
+".hg": not_hygienic
+".git": -traverse
+".git": not_hygienic
+"_darcs": -traverse
+"_darcs": not_hygienic
+# Library faraday
+"lib/faraday.cmxs": use_faraday
+# Executable test_faraday
+<lib_test/test_faraday.{native,byte}>: pkg_alcotest
+<lib_test/test_faraday.{native,byte}>: use_faraday
+<lib_test/*.ml{,i,y}>: pkg_alcotest
+<lib_test/*.ml{,i,y}>: use_faraday
+# OASIS_STOP

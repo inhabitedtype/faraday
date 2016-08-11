@@ -1,0 +1,11 @@
+# OASIS_START
+# DO NOT EDIT (digest: 5e8180d828ac52aa9d6e8c5f28ee34d7)
+version = "dev"
+description = "Serialization library built for speed and efficiency"
+archive(byte) = "faraday.cma"
+archive(byte, plugin) = "faraday.cma"
+archive(native) = "faraday.cmxa"
+archive(native, plugin) = "faraday.cmxs"
+exists_if = "faraday.cma"
+# OASIS_STOP
+

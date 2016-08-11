@@ -1,0 +1,29 @@
+OASISFormat: 0.4
+Name:        faraday
+Version:     dev
+Authors:     Spiros Eliopoulos <spiros@inhabitedtype.com>
+Maintainers: Spiros Eliopoulos <spiros@inhabitedtype.com>
+Copyrights:  (C) 2015 Inhabited Type LLC
+License:     BSD-3-clause
+Plugins:     META (0.4), DevFiles (0.4)
+BuildTools:  ocamlbuild
+Synopsis:    Serialization library built for speed and efficiency
+
+
+Library faraday
+  Path:         lib
+  Findlibname:  faraday
+  Modules:      Faraday
+
+Executable test_faraday
+  Path:             lib_test
+  MainIs:           test_faraday.ml
+  Build$:           flag(tests)
+  CompiledObject:   best
+  Install:          false
+  BuildDepends:     faraday, alcotest
+
+Test test_faraday
+  Run$:             flag(tests)
+  Command:          $test_faraday
+  WorkingDirectory: lib_test
