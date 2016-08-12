@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 43272175ea74ec1fa30112204c083c06)
+# DO NOT EDIT (digest: 532969d3acc2da8af4f22405fa41bed4)
 version = "dev"
 description = "Serialization library built for speed and memory-efficiency"
 archive(byte) = "faraday.cma"
@@ -7,5 +7,15 @@ archive(byte, plugin) = "faraday.cma"
 archive(native) = "faraday.cmxa"
 archive(native, plugin) = "faraday.cmxs"
 exists_if = "faraday.cma"
+package "async" (
+ version = "dev"
+ description = "Serialization library built for speed and memory-efficiency"
+ requires = "faraday core async threads"
+ archive(byte) = "faraday_async.cma"
+ archive(byte, plugin) = "faraday_async.cma"
+ archive(native) = "faraday_async.cmxa"
+ archive(native, plugin) = "faraday_async.cmxs"
+ exists_if = "faraday_async.cma"
+)
 # OASIS_STOP
 

@@ -11,10 +11,24 @@ BuildTools:  ocamlbuild
 Synopsis:    Serialization library built for speed and memory-efficiency
 
 
+Flag async
+  Description: build the Async libraries
+  Default: false
+
 Library faraday
   Path:         lib
   Findlibname:  faraday
   Modules:      Faraday
+
+Library faraday_async
+  Path:           async
+  Findlibname:    async
+  Findlibparent:  faraday
+  Build$:         flag(async)
+  Install$:       flag(async)
+  BuildDepends:   faraday, core, async, threads
+  Modules:        Faraday_async
+
 
 Executable test_faraday
   Path:             lib_test
