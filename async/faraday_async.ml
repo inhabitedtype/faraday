@@ -8,20 +8,31 @@ module Unix = Core.Std.Unix
 
 
 let serialize t ~yield ~writev =
+  let shutdown () =
+    Faraday.close t;
+    (* It's necessary to drain the serializer in order to free any buffers that
+     * be queued up. *)
+    Faraday.drain t
+  in
   let rec loop op =
     match op with
     | Faraday.Writev(iovecs, k) ->
       writev iovecs
       >>= (function
-        | `Closed n -> Faraday.close t; loop (k n)
+        | `Closed   -> shutdown (); return () (* XXX(seliopou): this should be reported *)
         | `Ok n     -> loop (k n))
     | Faraday.Yield k ->
       yield t >>= fun () -> loop (k ())
     | Faraday.Close -> return ()
   in
-  loop (Faraday.serialize t)
+  try_with ~extract_exn:true (fun () -> loop (Faraday.serialize t))
+  >>| function
+    | Result.Ok () -> ()
+    | Result.Error exn ->
+      shutdown ();
+      raise exn
 
-let group_iovecs iovecs =
+let take_group iovecs =
   let to_group = function
     | { Faraday.buffer = `String buffer; off; len } ->
       `String [{ Faraday.buffer; off; len }]
@@ -30,65 +41,74 @@ let group_iovecs iovecs =
     | { Faraday.buffer = `Bigstring buffer; off; len } ->
       `Bigstring [{ Faraday.buffer; off; len }]
   in
-  let rec loop iovecs group acc =
+  let rec loop group iovecs =
     match iovecs with
-    | [] -> List.rev (group::acc)
+    | [] -> (group, [])
     | iovec::iovecs ->
       begin match to_group iovec, group with
       | `String item   , `String group ->
-        loop iovecs (`String (item @ group)) acc
+        loop (`String (item @ group)) iovecs
       | `Bigstring item, `Bigstring group ->
-        loop iovecs (`Bigstring (item @ group)) acc
-      | item, _ ->
-        loop iovecs item (group::acc)
+        loop (`Bigstring (item @ group)) iovecs
+      | item, _ -> group, (iovec::iovecs)
       end
   in
   match iovecs with
-  | []            -> assert false
-  | iovec::iovecs -> loop iovecs (to_group iovec) []
+  | [] -> None
+  | iovec::iovecs ->
+    let group, rest = loop (to_group iovec) iovecs in
+    Some(group, rest)
 
-let serialize_to_fd t fd ~yield =
-  let writev iovecs =
-    let rec loop groups written =
-      match groups with
-      | []                      -> return (`Ok written)
-      | (`String group)::groups ->
-        let iovecs = Array.of_list_rev_map group ~f:(fun iovec ->
-          let { Faraday.buffer; off = pos; len } = iovec in
-          Unix.IOVec.of_string ~pos ~len buffer)
-        in
-        finish groups written
+let writev_of_fd fd =
+  let badfd =
+    failwithf "writev_of_fd_assume_nonblocking got bad fd: %s" (Fd.to_string fd)
+  in
+  let finish result =
+    let open Unix.Error in
+    match result with
+    | `Ok n           -> return (`Ok n)
+    | `Already_closed -> return `Closed
+    | `Error (Unix.Unix_error ((EWOULDBLOCK | EAGAIN), _, _)) ->
+      begin Fd.ready_to fd `Write
+      >>| function
+        | `Bad_fd -> badfd ()
+        | `Closed -> `Closed
+        | `Ready  -> `Ok 0
+      end
+    | `Error (Unix.Unix_error (EBADF, _, _)) ->
+      badfd ()
+    | `Error exn ->
+      Deferred.don't_wait_for (Fd.close fd);
+      raise exn
+  in
+  fun iovecs ->
+    match take_group iovecs with
+    | None -> return (`Ok 0)
+    | Some(`String group, _) ->
+      let iovecs = Array.of_list_rev_map group ~f:(fun iovec ->
+        let { Faraday.buffer; off = pos; len } = iovec in
+        Unix.IOVec.of_string ~pos ~len buffer)
+      in
+      if Fd.supports_nonblock fd then
+        finish
           (Fd.syscall fd ~nonblocking:true
             (fun file_descr ->
               Unix.writev_assume_fd_is_nonblocking file_descr iovecs))
-      | (`Bigstring group)::groups ->
-        let iovecs = Array.of_list_rev_map group ~f:(fun iovec ->
-          let { Faraday.buffer; off = pos; len } = iovec in
-          Unix.IOVec.of_bigstring ~pos ~len buffer)
-        in
-        finish groups written
+      else
+        Fd.syscall_in_thread fd ~name:"writev"
+          (fun file_descr -> Unix.writev file_descr iovecs)
+        >>= finish
+    | Some(`Bigstring group, _) ->
+      let iovecs = Array.of_list_rev_map group ~f:(fun iovec ->
+        let { Faraday.buffer; off = pos; len } = iovec in
+        Unix.IOVec.of_bigstring ~pos ~len buffer)
+      in
+      if Fd.supports_nonblock fd then
+        finish
           (Fd.syscall fd ~nonblocking:true
             (fun file_descr ->
               Bigstring.writev_assume_fd_is_nonblocking file_descr iovecs))
-    and finish groups written result =
-      let open Unix.Error in
-      match result with
-      | `Ok n           -> loop groups (written + n)
-      | `Already_closed -> return (`Closed written)
-      | `Error (Unix.Unix_error ((EWOULDBLOCK | EAGAIN), _, _)) ->
-        begin Fd.ready_to fd `Write
-        >>| function
-          | `Bad_fd -> Faraday.close t; failwith "serialize_to_fd got bad fd"
-          | `Closed -> `Closed written
-          | `Ready  -> `Ok written
-        end
-      | `Error (Unix.Unix_error (EBADF, _, _)) ->
-        Faraday.close t; failwith "serialize_to_fd got bad fd"
-      | `Error exn ->
-        Faraday.close t;
-        Deferred.don't_wait_for (Fd.close fd);
-        raise exn
-    in
-    loop (group_iovecs iovecs) 0
-  in
-  serialize t ~yield ~writev
+      else
+        Fd.syscall_in_thread fd ~name:"writev"
+          (fun file_descr -> Bigstring.writev file_descr iovecs)
+        >>= finish
