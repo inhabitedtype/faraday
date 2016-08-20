@@ -161,11 +161,12 @@ type op =
     (** Serialization is complete. No further output will be received. *)
 
 val serialize : t -> op
-(** [serialize t] runs [t], surfacing operations to the user, together with an
-    explicit continuation, as they become available. The continuation of the
-    {Writev} operation takes the number of bytes that were successfuly written
-    from the list of {iovec}s. When to call the continuations in the {Writev}
-    and {Yield} case are application-specific. *)
+(** [serialize t] runs [t], surfacing operations to the user together with an
+    explicit continuation. The application may determine when to call the
+    continuations in the {Writev} and {Yield} cases, with the caveat that the
+    [int] passed to the continuation in the {Writev} correspond to the number
+    of bytes that have {i actually} been written from the {iovec}s at the time
+    that the user invokes the continuation. *)
 
 val serialize_to_string : t -> string
 (** [serialize_to_string t] runs [t], collecting the output into a string and
