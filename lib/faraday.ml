@@ -343,3 +343,13 @@ let serialize_to_string t =
     iovecs;
     assert (k len = Close);
     Bytes.unsafe_to_string bytes
+
+let drain t =
+  let rec loop = function
+    | Close -> ()
+    | Yield k -> loop (k ())
+    | Writev(iovecs, k) ->
+      let len = List.fold_left (fun n iov -> n  + iov.len) 0 iovecs in
+      loop (k len)
+  in
+  loop (serialize t)

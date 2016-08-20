@@ -172,3 +172,7 @@ val serialize_to_string : t -> string
 (** [serialize_to_string t] runs [t], collecting the output into a string and
     returning it. [t] is immediately closed, and all calls to {yield} are
     ignored. *)
+
+val drain : t -> unit
+(** [drain t] removes all pending writes from [t], freeing any scheduled
+    buffers in the process.  *)
