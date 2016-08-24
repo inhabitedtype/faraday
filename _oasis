@@ -8,7 +8,7 @@ Copyrights:  (C) 2015 Inhabited Type LLC
 License:     BSD-3-clause
 Plugins:     META (0.4), DevFiles (0.4)
 BuildTools:  ocamlbuild
-Synopsis:    Serialization library built for speed and efficiency
+Synopsis:    Serialization library built for speed and memory-efficiency
 
 
 Library faraday
