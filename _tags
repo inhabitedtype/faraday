@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 3d8d8f8108e92d0437bd5d2db80c54f1)
+# DO NOT EDIT (digest: f84caaabcfcc78ffca2876cd75515ae6)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -22,6 +22,14 @@ true: annot, bin_annot
 <async/*.ml{,i,y}>: pkg_core
 <async/*.ml{,i,y}>: pkg_threads
 <async/*.ml{,i,y}>: use_faraday
+# Library faraday_lwt
+"lwt/faraday_lwt.cmxs": use_faraday_lwt
+# Library faraday_lwt_unix
+"lwt/faraday_lwt_unix.cmxs": use_faraday_lwt_unix
+<lwt/*.ml{,i,y}>: pkg_lwt
+<lwt/*.ml{,i,y}>: pkg_lwt.unix
+<lwt/*.ml{,i,y}>: use_faraday
+<lwt/*.ml{,i,y}>: use_faraday_lwt
 # Executable test_faraday
 <lib_test/test_faraday.{native,byte}>: pkg_alcotest
 <lib_test/test_faraday.{native,byte}>: use_faraday

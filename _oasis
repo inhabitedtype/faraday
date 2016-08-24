@@ -15,6 +15,14 @@ Flag async
   Description: build the Async libraries
   Default: false
 
+Flag lwt
+  Description: build the Lwt libraries
+  Default: false
+
+Flag unix
+  Description: build the Unix libraries
+  Default: true
+
 Library faraday
   Path:         lib
   Findlibname:  faraday
@@ -29,6 +37,23 @@ Library faraday_async
   BuildDepends:   faraday, core, async, threads
   Modules:        Faraday_async
 
+Library faraday_lwt
+  Path:           lwt
+  Findlibname:    lwt
+  Findlibparent:  faraday
+  Build$:         flag(lwt)
+  Install$:       flag(lwt)
+  BuildDepends:   faraday, lwt
+  Modules:        Faraday_lwt
+
+Library faraday_lwt_unix
+  Path:           lwt
+  Findlibname:    lwt-unix
+  Findlibparent:  faraday
+  Build$:         flag(lwt) && flag(unix)
+  Install$:       flag(lwt) && flag(unix)
+  BuildDepends:   faraday.lwt, lwt.unix
+  Modules:        Faraday_lwt_unix
 
 Executable test_faraday
   Path:             lib_test

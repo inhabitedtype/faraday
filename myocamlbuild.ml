@@ -1,5 +1,5 @@
 (* OASIS_START *)
-(* DO NOT EDIT (digest: 37275ac5f3e246cb27eb7d8dbb0fa028) *)
+(* DO NOT EDIT (digest: b9a00c78435ce222dc929dd2400941a2) *)
 module OASISGettext = struct
 (* # 22 "src/oasis/OASISGettext.ml" *)
 
@@ -768,10 +768,15 @@ open Ocamlbuild_plugin;;
 let package_default =
   {
      MyOCamlbuildBase.lib_ocaml =
-       [("faraday", ["lib"], []); ("faraday_async", ["async"], [])];
+       [
+          ("faraday", ["lib"], []);
+          ("faraday_async", ["async"], []);
+          ("faraday_lwt", ["lwt"], []);
+          ("faraday_lwt_unix", ["lwt"], [])
+       ];
      lib_c = [];
      flags = [];
-     includes = [("lib_test", ["lib"]); ("async", ["lib"])]
+     includes = [("lwt", ["lib"]); ("lib_test", ["lib"]); ("async", ["lib"])]
   }
   ;;
 
@@ -779,6 +784,6 @@ let conf = {MyOCamlbuildFindlib.no_automatic_syntax = false}
 
 let dispatch_default = MyOCamlbuildBase.dispatch_default conf package_default;;
 
-# 783 "myocamlbuild.ml"
+# 788 "myocamlbuild.ml"
 (* OASIS_STOP *)
 Ocamlbuild_plugin.dispatch dispatch_default;;

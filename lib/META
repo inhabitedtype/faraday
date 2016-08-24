@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 532969d3acc2da8af4f22405fa41bed4)
+# DO NOT EDIT (digest: 289e1b86480eefab6353c509c5527b63)
 version = "dev"
 description = "Serialization library built for speed and memory-efficiency"
 archive(byte) = "faraday.cma"
@@ -7,6 +7,28 @@ archive(byte, plugin) = "faraday.cma"
 archive(native) = "faraday.cmxa"
 archive(native, plugin) = "faraday.cmxs"
 exists_if = "faraday.cma"
+package "lwt-unix" (
+ version = "dev"
+ description = "Serialization library built for speed and memory-efficiency"
+ requires = "faraday.lwt lwt.unix"
+ archive(byte) = "faraday_lwt_unix.cma"
+ archive(byte, plugin) = "faraday_lwt_unix.cma"
+ archive(native) = "faraday_lwt_unix.cmxa"
+ archive(native, plugin) = "faraday_lwt_unix.cmxs"
+ exists_if = "faraday_lwt_unix.cma"
+)
+
+package "lwt" (
+ version = "dev"
+ description = "Serialization library built for speed and memory-efficiency"
+ requires = "faraday lwt"
+ archive(byte) = "faraday_lwt.cma"
+ archive(byte, plugin) = "faraday_lwt.cma"
+ archive(native) = "faraday_lwt.cmxa"
+ archive(native, plugin) = "faraday_lwt.cmxs"
+ exists_if = "faraday_lwt.cma"
+)
+
 package "async" (
  version = "dev"
  description = "Serialization library built for speed and memory-efficiency"
