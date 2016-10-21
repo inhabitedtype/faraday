@@ -58,27 +58,33 @@ val of_bigstring : bigstring -> t
     of this buffer is determined when the serializer is created and does not
     change throughout the lifetime of that serializer. If the buffer does not
     contain sufficient space to service the buffered writes of the caller, it
-    will cease to batch writes and begin to allocate. See the documentation for
+    will cease to batch writes and begin to allocate in certain situations. See
+    the documentation for the subsequent {write_*} calls and
     {!free_bytes_to_write} for additional details. *)
 
 val write_string : t -> ?off:int -> ?len:int -> string -> unit
 (** [write_string t ?off ?len str] copies [str] into the serializer's
-    internal write buffer. The contents of [str] will be batched with prior or
-    subsequent writes, if possible. *)
+    internal buffer, if possible. In the event that there is not sufficient
+    space in the buffer, [str] will be scheduled for the next batch write, and
+    should therefore be treated as immutable. *)
 
 val write_bytes : t -> ?off:int -> ?len:int -> Bytes.t -> unit
 (** [write_bytes t ?off ?len bytes] copies [bytes] into the serializer's
-    internal write buffer. The contents of [bytes] will be batched with prior
-    or subsequent writes, if possible. *)
+    internal buffer, if possible. In the event that there is not sufficient
+    space in the buffer, [bytes] will be copied, and that sopy will be
+    scheduled for the next batch write. In either case, it is safe to modify
+    [bytes] after this call returns. *)
 
 val write_bigstring : t -> ?off:int -> ?len:int -> bigstring -> unit
 (** [write_bigstring t ?off ?len bigstring] copies [bigstring] into the
-    serializer's internal write buffer. The contents of [bigstring] will be
-    batched with prior or subsequent writes, if possible. *)
+    serializer's internal buffer, if possible. In the event that there is not
+    sufficient space in the buffer, [bigstring] will be copied, and that sopy
+    will be scheduled for the next batch write. In either case, it is safe to
+    modify [bytes] after this call returns.  *)
 
 val write_char : t -> char -> unit
-(** [write_char t char] copies [char] into the serializer's internal buffer.
-    [char] will be batched with prior or subsequent writes, if possible. *)
+(** [write_char t char] copies [char] into the serializer's internal buffer, if
+    possible. *)
 
 
 (** {2 Unbuffered Writes} *)
