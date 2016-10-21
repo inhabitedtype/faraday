@@ -71,6 +71,11 @@ val write_bytes : t -> ?off:int -> ?len:int -> Bytes.t -> unit
     internal write buffer. The contents of [bytes] will be batched with prior
     or subsequent writes, if possible. *)
 
+val write_bigstring : t -> ?off:int -> ?len:int -> bigstring -> unit
+(** [write_bigstring t ?off ?len bigstring] copies [bigstring] into the
+    serializer's internal write buffer. The contents of [bigstring] will be
+    batched with prior or subsequent writes, if possible. *)
+
 val write_char : t -> char -> unit
 (** [write_char t char] copies [char] into the serializer's internal buffer.
     [char] will be batched with prior or subsequent writes, if possible. *)

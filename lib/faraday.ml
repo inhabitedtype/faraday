@@ -187,6 +187,17 @@ let free_bytes_to_write t =
 let sufficient_space t to_write =
   to_write > free_bytes_to_write t
 
+
+let bigarray_to_string ~off ~len src =
+  String.init (len - off) (fun i ->
+    Bigarray.Array1.unsafe_get src (off + i))
+
+let bigarray_blit dst dst_off src src_off src_len =
+  for i = 0 to src_len - 1 do
+    Bigarray.Array1.unsafe_set dst
+      (dst_off + i) (Bigarray.Array1.unsafe_get src (src_off + i))
+  done
+
 let bigarray_blit_from_string dst dst_off src src_off src_len =
   (* XXX(seliopou): Use Cstruct to turn this into a [memcpy]. *)
   for i = 0 to src_len - 1 do
@@ -267,6 +278,19 @@ let write_bytes t ?(off=0) ?len bytes =
     t.write_pos <- t.write_pos + len
   end else
     schedule_string t ~off ~len (Bytes.to_string bytes)
+
+let write_bigstring t ?(off=0) ?len bigstring =
+  writable t;
+  let len =
+    match len with
+    | None -> Bigarray.Array1.dim bigstring - off
+    | Some len -> len
+  in
+  if sufficient_space t len then begin
+    bigarray_blit t.buffer t.write_pos bigstring off len;
+    t.write_pos <- t.write_pos + len
+  end else
+    schedule_string t ~off:0 ~len (bigarray_to_string ~off ~len bigstring)
 
 let write_char t char =
   writable t;
