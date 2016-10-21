@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: ccab955048692c2256caae562af489aa)
+# DO NOT EDIT (digest: 844bd08f509e7b2755614e49451f2862)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -16,28 +16,28 @@ true: annot, bin_annot
 "_darcs": not_hygienic
 # Library faraday
 "lib/faraday.cmxs": use_faraday
-<lib/*.ml{,i,y}>: pkg_bigarray
+<lib/*.ml{,i,y}>: package(bigarray)
 # Library faraday_async
 "async/faraday_async.cmxs": use_faraday_async
-<async/*.ml{,i,y}>: pkg_async
-<async/*.ml{,i,y}>: pkg_bigarray
-<async/*.ml{,i,y}>: pkg_core
-<async/*.ml{,i,y}>: pkg_threads
+<async/*.ml{,i,y}>: package(async)
+<async/*.ml{,i,y}>: package(bigarray)
+<async/*.ml{,i,y}>: package(core)
+<async/*.ml{,i,y}>: package(threads)
 <async/*.ml{,i,y}>: use_faraday
 # Library faraday_lwt
 "lwt/faraday_lwt.cmxs": use_faraday_lwt
 # Library faraday_lwt_unix
 "lwt/faraday_lwt_unix.cmxs": use_faraday_lwt_unix
-<lwt/*.ml{,i,y}>: pkg_bigarray
-<lwt/*.ml{,i,y}>: pkg_lwt
-<lwt/*.ml{,i,y}>: pkg_lwt.unix
+<lwt/*.ml{,i,y}>: package(bigarray)
+<lwt/*.ml{,i,y}>: package(lwt)
+<lwt/*.ml{,i,y}>: package(lwt.unix)
 <lwt/*.ml{,i,y}>: use_faraday
 <lwt/*.ml{,i,y}>: use_faraday_lwt
 # Executable test_faraday
-<lib_test/test_faraday.{native,byte}>: pkg_alcotest
-<lib_test/test_faraday.{native,byte}>: pkg_bigarray
+<lib_test/test_faraday.{native,byte}>: package(alcotest)
+<lib_test/test_faraday.{native,byte}>: package(bigarray)
 <lib_test/test_faraday.{native,byte}>: use_faraday
-<lib_test/*.ml{,i,y}>: pkg_alcotest
-<lib_test/*.ml{,i,y}>: pkg_bigarray
+<lib_test/*.ml{,i,y}>: package(alcotest)
+<lib_test/*.ml{,i,y}>: package(bigarray)
 <lib_test/*.ml{,i,y}>: use_faraday
 # OASIS_STOP
