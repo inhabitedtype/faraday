@@ -76,12 +76,12 @@ let interleaved =
   end
   ; "schedule_then_write", `Quick, begin fun () ->
     List.iteri (fun i ops ->
-      check ~msg:(Printf.sprintf "write_then_schedule: %d" i) ops "stte")
+      check ~msg:(Printf.sprintf "schedule_then_write: %d" i) ops "stte")
     (cross
       [`Schedule_string "st"; `Schedule_bytes "st"; `Schedule_bigstring "st"]
       [`Write_string "te"; `Write_bytes "te"; `Write_bigstring "te"]);
     List.iteri (fun i ops ->
-      check ~msg:"write_then_schedule: char" ops "estt")
+      check ~msg:"schedule_then_write: char" ops "estt")
     (cross
       [`Schedule_string "est"; `Schedule_bytes "est"; `Schedule_bigstring "est"]
       [`Write_char 't'])
