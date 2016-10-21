@@ -1,7 +1,8 @@
 # OASIS_START
-# DO NOT EDIT (digest: 289e1b86480eefab6353c509c5527b63)
+# DO NOT EDIT (digest: b3c6e2ee5a9aa13f08e3bcd9ba8285b0)
 version = "dev"
 description = "Serialization library built for speed and memory-efficiency"
+requires = "bigarray"
 archive(byte) = "faraday.cma"
 archive(byte, plugin) = "faraday.cma"
 archive(native) = "faraday.cmxa"

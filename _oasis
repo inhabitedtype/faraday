@@ -26,6 +26,7 @@ Flag unix
 Library faraday
   Path:         lib
   Findlibname:  faraday
+  BuildDepends: bigarray
   Modules:      Faraday
 
 Library faraday_async
