@@ -8,45 +8,88 @@ let bigstring_of_string str =
   done;
   buf
 
-let check ?(buf_size=0x100) ~msg f result =
+let rec cross xs ys =
+  match xs with
+  | [] -> []
+  | x::xs' -> List.(map (fun y -> [x; y]) ys) @ (cross xs' ys)
+
+
+let check ?(buf_size=0x100) ~msg ops result =
   let t = create buf_size in
-  f t;
+  List.iter (function
+    | `Write_string    s -> write_string    t s
+    | `Write_bytes     s -> write_bytes     t (Bytes.unsafe_of_string s)
+    | `Write_bigstring s -> write_bigstring t (bigstring_of_string s)
+    | `Write_char      c -> write_char      t c
+    | `Schedule_string s -> schedule_string t s
+    | `Schedule_bytes  s -> schedule_bytes  t (Bytes.unsafe_of_string s)
+    | `Schedule_bigstring s -> schedule_bigstring t (bigstring_of_string s)
+    | `Yield -> yield t)
+  ops;
   Alcotest.(check string) msg result (serialize_to_string t)
 
 let empty =
-  let empty_bytes = Bytes.create 0 in
-  let empty_bigstring = bigstring_of_string "" in
-  [ "noop"       , `Quick, begin fun () -> check ~msg:"noop" (fun _ -> ()) "" end
-  ; "yield"      , `Quick, begin fun () -> check ~msg:"yield" yield "" end
+  [ "noop"       , `Quick, begin fun () -> check ~msg:"noop"  []       "" end
+  ; "yield"      , `Quick, begin fun () -> check ~msg:"yield" [`Yield] "" end
   ; "write", `Quick, begin fun () ->
-      check ~msg:"string" (fun t -> write_string t "") "";
-      check ~msg:"bytes"  (fun t -> write_bytes t empty_bytes) ""
+      check ~msg:"string"    [`Write_string    ""] "";
+      check ~msg:"bytes"     [`Write_bytes     ""] "";
+      check ~msg:"bigstring" [`Write_bigstring ""] ""
   end
   ; "schedule", `Quick, begin fun () ->
-      check ~msg:"string"    (fun t -> schedule_string    t ""             ) "";
-      check ~msg:"bytes"     (fun t -> schedule_bytes     t empty_bytes    ) "";
-      check ~msg:"bigstring" (fun t -> schedule_bigstring t empty_bigstring) ""
+      check ~msg:"string"    [`Schedule_string    ""] "";
+      check ~msg:"bytes"     [`Schedule_bytes     ""] "";
+      check ~msg:"bigstring" [`Schedule_bigstring ""] ""
   end ]
 
 let write =
   [ "single", `Quick, begin fun () ->
-      let test_bytes = Bytes.unsafe_of_string "test" in
-      check ~msg:"string" (fun t -> write_string t "test") "test";
-      check ~msg:"bytes"  (fun t -> write_bytes  t test_bytes) "test";
-      check ~msg:"char"   (fun t -> write_char   t 'A') "A"
+      check ~msg:"string"    [`Write_string    "test"] "test";
+      check ~msg:"bytes"     [`Write_bytes     "test"] "test";
+      check ~msg:"bigstring" [`Write_bigstring "test"] "test";
+      check ~msg:"char"      [`Write_char      'A'   ] "A"
   end ]
 
 let schedule =
   [ "single", `Quick, begin fun () ->
-      let test_bytes = Bytes.unsafe_of_string "test" in
-      let test_bigstring = bigstring_of_string "test" in
-      check ~msg:"string"    (fun t -> schedule_string t "test") "test";
-      check ~msg:"bytes"     (fun t -> schedule_bytes t test_bytes) "test";
-      check ~msg:"bigstring" (fun t -> schedule_bigstring t test_bigstring) "test"
+      check ~msg:"string"    [`Schedule_string    "test"] "test";
+      check ~msg:"bytes"     [`Schedule_bytes     "test"] "test";
+      check ~msg:"bigstring" [`Schedule_bigstring "test"] "test"
+  end ]
+
+let interleaved =
+  (* XXX(seliopou): Replace with property-based testing. The property should
+     really be: Given a string, for any partition of that string and for any
+     assignment of writes and schedules on the partition, the output will be
+     the same as the input. *)
+  [ "write_then_schedule", `Quick, begin fun () ->
+    List.iteri (fun i ops ->
+      check ~msg:(Printf.sprintf "write_then_schedule: %d" i) ops "test")
+    (cross
+      [`Write_string "te"; `Write_bytes "te"; `Write_bigstring "te"]
+      [`Schedule_string "st"; `Schedule_bytes "st"; `Schedule_bigstring "st"]);
+    List.iteri (fun i ops ->
+      check ~msg:"write_then_schedule: char" ops "test")
+    (cross
+      [`Write_char 't']
+      [`Schedule_string "est"; `Schedule_bytes "est"; `Schedule_bigstring "est"])
+  end
+  ; "schedule_then_write", `Quick, begin fun () ->
+    List.iteri (fun i ops ->
+      check ~msg:(Printf.sprintf "write_then_schedule: %d" i) ops "stte")
+    (cross
+      [`Schedule_string "st"; `Schedule_bytes "st"; `Schedule_bigstring "st"]
+      [`Write_string "te"; `Write_bytes "te"; `Write_bigstring "te"]);
+    List.iteri (fun i ops ->
+      check ~msg:"write_then_schedule: char" ops "estt")
+    (cross
+      [`Schedule_string "est"; `Schedule_bytes "est"; `Schedule_bigstring "est"]
+      [`Write_char 't'])
   end ]
 
 let () =
   Alcotest.run "test suite"
-    [ "empty output", empty
-    ; "write"       , write
-    ; "schedule"    , schedule ]
+    [ "empty output"      , empty
+    ; "single write"      , write
+    ; "single schedule"   , schedule
+    ; "interleaved calls" , interleaved ]
