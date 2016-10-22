@@ -136,6 +136,10 @@ val close : t -> unit
     any pending writes, user code will have an opportunity to service them
     before it receives the {Close} operation. *)
 
+val is_closed : t -> bool
+(** [is_closed t] is [true] if [close] has been called on [t] and [false]
+    otherwise. *)
+
 val drain : t -> unit
 (** [drain t] removes all pending writes from [t], freeing any scheduled
     buffers in the process.  *)

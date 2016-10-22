@@ -304,6 +304,9 @@ let close t =
   t.closed <- true;
   flush_buffer t
 
+let is_closed t =
+  t.closed
+
 let yield t =
   t.yield <- true
 
