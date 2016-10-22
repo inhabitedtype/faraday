@@ -123,18 +123,22 @@ val schedule_bigstring
 (** {2 Control Operations} *)
 
 val yield : t -> unit
-(** [yield t] causes the serializer to delay surfacing writes to the user,
-    instead returning a {!Yield} operation with an associated continuation [k].
-    This gives the serializer an opportunity to collect additional writes
-    before sending them to the underlying device, which will increase the write
-    batch size. Barring any intervening calls to [yield t], calling the
-    continuation [k] will surface writes to the user. *)
+(** [yield t] causes [t] to delay surfacing writes to the user, instead
+    returning a {!Yield} operation with an associated continuation [k]. This
+    gives the serializer an opportunity to collect additional writes before
+    sending them to the underlying device, which will increase the write batch
+    size. Barring any intervening calls to [yield t], calling the continuation
+    [k] will surface writes to the user. *)
 
 val close : t -> unit
-(** [close t] closes the serializer. All subsequent write calls will raise, and
-    any pending or subsequent {yield} calls will be ignored. If the serializer
-    has any pending writes, user code will have an opportunity to service them
+(** [close t] closes [t]. All subsequent write calls will raise, and any
+    pending or subsequent {yield} calls will be ignored. If the serializer has
+    any pending writes, user code will have an opportunity to service them
     before it receives the {Close} operation. *)
+
+val drain : t -> unit
+(** [drain t] removes all pending writes from [t], freeing any scheduled
+    buffers in the process.  *)
 
 val free_bytes_to_write : t -> int
 (** [free_bytes_to_write t] returns the free space, in bytes, of the
@@ -183,7 +187,3 @@ val serialize_to_string : t -> string
 (** [serialize_to_string t] runs [t], collecting the output into a string and
     returning it. [t] is immediately closed, and all calls to {yield} are
     ignored. *)
-
-val drain : t -> unit
-(** [drain t] removes all pending writes from [t], freeing any scheduled
-    buffers in the process.  *)
