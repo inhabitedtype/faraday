@@ -193,10 +193,7 @@ let bigarray_to_string ~off ~len src =
     Bigarray.Array1.unsafe_get src (off + i))
 
 let bigarray_blit dst dst_off src src_off src_len =
-  for i = 0 to src_len - 1 do
-    Bigarray.Array1.unsafe_set dst
-      (dst_off + i) (Bigarray.Array1.unsafe_get src (src_off + i))
-  done
+  Bigarray.Array1.(blit (sub src src_off src_len) (sub dst dst_off src_len))
 
 let bigarray_blit_from_string dst dst_off src src_off src_len =
   (* XXX(seliopou): Use Cstruct to turn this into a [memcpy]. *)
