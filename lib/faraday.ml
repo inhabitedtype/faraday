@@ -185,8 +185,7 @@ let free_bytes_to_write t =
   buf_len - t.write_pos
 
 let sufficient_space t to_write =
-  to_write > free_bytes_to_write t
-
+  free_bytes_to_write t >= to_write
 
 let bigarray_to_string ~off ~len src =
   String.init (len - off) (fun i ->
