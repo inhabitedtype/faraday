@@ -304,6 +304,9 @@ let close t =
 let is_closed t =
   t.closed
 
+let has_pending_output t =
+  not (Deque.is_empty t.scheduled)
+
 let yield t =
   t.yield <- true
 
@@ -325,7 +328,7 @@ let rec serialize t =
     t.yield <- false
   end;
   flush_buffer t;
-  let nothing_to_do = Deque.is_empty t.scheduled in
+  let nothing_to_do = not (has_pending_output t) in
   if t.closed && nothing_to_do then
     Close
   else if t.yield || nothing_to_do then begin

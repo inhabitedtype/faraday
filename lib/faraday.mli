@@ -138,7 +138,12 @@ val close : t -> unit
 
 val is_closed : t -> bool
 (** [is_closed t] is [true] if [close] has been called on [t] and [false]
-    otherwise. *)
+    otherwise. A closed [t] may still have pending output. *)
+
+val has_pending_output : t -> bool
+(** [has_pending_output t] is [true] if [t]'s output queue is non-empty. It may
+    be the case that [t]'s queued output is being serviced by some other thread
+    of control, but has not yet completed. *)
 
 val drain : t -> unit
 (** [drain t] removes all pending writes from [t], freeing any scheduled
