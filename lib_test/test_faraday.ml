@@ -26,9 +26,9 @@ let check ?(buf_size=0x100) ~iovecs ~msg ops result =
     | `Yield -> yield t)
   ops;
   Alcotest.(check int) "iovec count" iovecs
-    (match serialize t with
-    | Writev(iovecs, _) -> List.length iovecs
-    | _                 -> 0);
+    (match operation t with
+    | `Writev iovecs  -> List.length iovecs
+    | _               -> 0);
   Alcotest.(check string) msg result (serialize_to_string t)
 
 let empty =

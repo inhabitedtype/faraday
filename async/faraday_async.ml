@@ -14,18 +14,18 @@ let serialize t ~yield ~writev =
      * be queued up. *)
     Faraday.drain t
   in
-  let rec loop op =
-    match op with
-    | Faraday.Writev(iovecs, k) ->
+  let rec loop t =
+    match Faraday.operation t with
+    | `Writev iovecs ->
       writev iovecs
       >>= (function
         | `Closed   -> shutdown (); return () (* XXX(seliopou): this should be reported *)
-        | `Ok n     -> loop (k n))
-    | Faraday.Yield k ->
-      yield t >>= fun () -> loop (k ())
-    | Faraday.Close -> return ()
+        | `Ok n     -> Faraday.shift t n; loop t)
+    | `Yield ->
+      yield t >>= fun () -> loop t
+    | `Close -> return ()
   in
-  try_with ~extract_exn:true (fun () -> loop (Faraday.serialize t))
+  try_with ~extract_exn:true (fun () -> loop t)
   >>| function
     | Result.Ok () -> ()
     | Result.Error exn ->
@@ -61,7 +61,7 @@ let take_group iovecs =
 
 let writev_of_fd fd =
   let badfd =
-    failwithf "writev_of_fd_assume_nonblocking got bad fd: %s" (Fd.to_string fd)
+    failwithf "writev_of_fd got bad fd: %s" (Fd.to_string fd)
   in
   let finish result =
     let open Unix.Error in

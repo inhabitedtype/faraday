@@ -146,7 +146,7 @@ type free =
   unit -> unit
 
 type t =
-  { mutable buffer         : bigstring
+  { buffer                 : bigstring
   ; mutable scheduled_pos  : int
   ; mutable write_pos      : int
   ; scheduled              : (buffer iovec * free option) Deque.t
@@ -154,10 +154,11 @@ type t =
   ; mutable yield          : bool
   }
 
-type op =
-  | Writev of buffer iovec list * (int  -> op)
-  | Yield  of                     (unit -> op)
-  | Close
+type operation = [
+  | `Writev of buffer iovec list
+  | `Yield
+  | `Close
+  ]
 
 let of_bigstring buffer =
   { buffer
@@ -314,51 +315,56 @@ let has_pending_output t =
 let yield t =
   t.yield <- true
 
-let rec clear_written t written =
+let rec shift t written =
   match Deque.dequeue t.scheduled with
-  | None               -> assert (written = 0);
+  | None               ->
+    assert (written = 0);
+    t.scheduled_pos <- 0;
+    t.write_pos <- 0
   | Some (iovec, free) ->
     if iovec.len <= written then begin
       begin match free with
       | None -> ()
       | Some free -> free ()
       end;
-      clear_written t (written - iovec.len)
+      shift t (written - iovec.len)
     end else
       Deque.enqueue_front (IOVec.shift iovec written, free) t.scheduled
 
-let rec serialize t =
+let operation t =
   if t.closed then begin
     t.yield <- false
   end;
   flush_buffer t;
   let nothing_to_do = not (has_pending_output t) in
   if t.closed && nothing_to_do then
-    Close
+    `Close
   else if t.yield || nothing_to_do then begin
     t.yield <- false;
-    Yield(fun () -> serialize t)
+    `Yield
   end else begin
-    assert (not nothing_to_do);
     let iovecs = Deque.map_to_list t.scheduled ~f:fst in
-    Writev(iovecs, fun written ->
-      clear_written t written;
-      if Deque.is_empty t.scheduled then begin
-        t.scheduled_pos <- 0;
-        t.write_pos <- 0
-      end;
-      serialize t)
+    `Writev iovecs
   end
+
+let rec serialize t writev =
+  match operation t with
+  | `Writev iovecs ->
+    let len = IOVec.lengthv iovecs in
+    begin match writev iovecs with
+    | `Ok   n -> shift t n; if n < len then yield t
+    | `Closed -> close t
+    end;
+    serialize t writev
+  | (`Close|`Yield) as next -> next
 
 let serialize_to_string t =
   close t;
-  match serialize t with
-  | Yield _ -> assert false
-  | Close   -> ""
-  | Writev (iovecs, k)  ->
+  match operation t with
+  | `Writev iovecs ->
     let len = IOVec.lengthv iovecs in
-    let pos = ref 0 in
     let bytes = Bytes.create len in
+    let pos = ref 0 in
     List.iter (function
       | { buffer = `String buf; off; len } ->
         Bytes.blit_string buf off bytes !pos len;
@@ -372,15 +378,17 @@ let serialize_to_string t =
         done;
         pos := !pos + len)
     iovecs;
-    assert (k len = Close);
+    shift t len;
+    assert (operation t = `Close);
     Bytes.unsafe_to_string bytes
+  | `Close -> ""
+  | `Yield -> assert false
 
-let drain t =
-  let rec loop = function
-    | Close -> ()
-    | Yield k -> loop (k ())
-    | Writev(iovecs, k) ->
-      let len = List.fold_left (fun n iov -> n  + iov.len) 0 iovecs in
-      loop (k len)
+let drain =
+  let writev iovecs = `Ok (IOVec.lengthv iovecs) in
+  let rec loop t =
+    match serialize t writev with
+    | `Close -> ()
+    | `Yield -> loop t
   in
-  loop (serialize t)
+  loop

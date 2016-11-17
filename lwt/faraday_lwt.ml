@@ -7,19 +7,19 @@ let serialize t ~yield ~writev =
      * may be be queued up. *)
     Faraday.drain t;
   in
-  let rec loop op =
-    match op with
-    | Faraday.Writev(iovecs, k) ->
+  let rec loop t =
+    match Faraday.operation t with
+    | `Writev iovecs ->
       writev iovecs
       >>= (function
         | `Closed   -> shutdown (); return () (* XXX(seliopou): this should be reported *)
-        | `Ok n     -> loop (k n))
-    | Faraday.Yield k ->
-      yield t >>= fun () -> loop (k ())
-    | Faraday.Close -> return ()
+        | `Ok n     -> Faraday.shift t n; loop t)
+    | `Yield ->
+      yield t >>= fun () -> loop t
+    | `Close -> return ()
   in
   catch
-    (fun ()  -> loop (Faraday.serialize t))
+    (fun ()  -> loop t)
     (fun exn ->
       shutdown ();
       fail exn)

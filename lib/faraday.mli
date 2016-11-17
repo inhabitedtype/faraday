@@ -130,6 +130,20 @@ val yield : t -> unit
     size. Barring any intervening calls to [yield t], calling the continuation
     [k] will surface writes to the user. *)
 
+val free_bytes_to_write : t -> int
+(** [free_bytes_to_write t] returns the free space, in bytes, of the
+    serializer's write buffer. If a call to {!write_bytes} or {!write_char} has
+    a length that exceeds the serializer's free size, the serializer will
+    allocate an additional buffer, copy the contents of the write call into
+    that buffer, and schedule it as a separate {!iovec}. If a call to
+    {!write_string} has a length that exceeds the serializer's free size, the
+    serializer will schedule it as an {!iovec} without performing a copy. *)
+
+val has_pending_output : t -> bool
+(** [has_pending_output t] is [true] if [t]'s output queue is non-empty. It may
+    be the case that [t]'s queued output is being serviced by some other thread
+    of control, but has not yet completed. *)
+
 val close : t -> unit
 (** [close t] closes [t]. All subsequent write calls will raise, and any
     pending or subsequent {yield} calls will be ignored. If the serializer has
@@ -140,23 +154,14 @@ val is_closed : t -> bool
 (** [is_closed t] is [true] if [close] has been called on [t] and [false]
     otherwise. A closed [t] may still have pending output. *)
 
-val has_pending_output : t -> bool
-(** [has_pending_output t] is [true] if [t]'s output queue is non-empty. It may
-    be the case that [t]'s queued output is being serviced by some other thread
-    of control, but has not yet completed. *)
+val shift : t -> int -> unit
+(** [shift t n] removes the first [n] bytes in [t]'s write queue. Any scheduled
+    buffers that are contained in this span of bytes are [free()]'d, if
+    necesasry. *)
 
 val drain : t -> unit
 (** [drain t] removes all pending writes from [t], freeing any scheduled
-    buffers in the process.  *)
-
-val free_bytes_to_write : t -> int
-(** [free_bytes_to_write t] returns the free space, in bytes, of the
-    serializer's write buffer. If a call to {!write_bytes} or {!write_char} has
-    a length that exceeds the serializer's free size, the serializer will
-    allocate an additional buffer, copy the contents of the write call into
-    that buffer, and schedule it as a separate {!iovec}. If a call to
-    {!write_string} has a length that exceeds the serializer's free size, the
-    serializer will schedule it as {!iovec}. *)
+    buffers in the process. *)
 
 
 (** {2 Running} *)
@@ -172,27 +177,34 @@ type 'a iovec =
   ; len : int }
 (** A view into {buffer} starting at {off} and with length {len}. *)
 
-type op =
-  | Writev of buffer iovec list * (int  -> op)
-    (** Write the {iovec}s, passing the continuation the number of bytes
-        successfully written. *)
-  | Yield  of                     (unit -> op)
-    (** Yield to other threads of control, whether logical or actual, and wait
-        for additional output before procedding. The method for achieving this
-        is application-specific. It is safe to call the continuation even no
-        additional output has been received. *)
-  | Close
+type operation = [
+  | `Writev of buffer iovec list
+    (** Write the {iovec}s, reporting the actual number of bytes written by
+        calling {shift}. Failure to do so will result in the same bytes being
+        surfaced in a [`Writev] operation multiple times. *)
+  | `Yield
+    (** Yield to other threads of control, waiting for additional output before
+        procedding. The method for achieving this is application-specific, but
+        once complete, the caller can proceed with serialization by simply
+        making another call to {!operation} or {serialize}. *)
+  | `Close
     (** Serialization is complete. No further output will be received. *)
+  ]
 
-val serialize : t -> op
-(** [serialize t] runs [t], surfacing operations to the user together with an
-    explicit continuation. The application may determine when to call the
-    continuations in the {Writev} and {Yield} cases, with the caveat that the
-    [int] passed to the continuation in the {Writev} correspond to the number
-    of bytes that have {i actually} been written from the {iovec}s at the time
-    that the user invokes the continuation. *)
+val operation : t -> operation
+(** [operation t] is the next operation that the caller must perform on behalf
+    of the serializer [t]. Users should consider using {serialize} before this
+    function. See the documentation for the {operator} type for details on how
+    callers hould handle these operations. *)
+
+val serialize : t -> (buffer iovec list -> [`Ok of int | `Closed]) -> [`Yield | `Close]
+(** [serialize t writev] sufaces the next operation of [t] to the caller,
+    handling a [`Writev] operation with [writev] function and performing an
+    additional bookkeeping on the caller's behalf. In the event that [writev]
+    indicates a partial write, {serialize} will call {yield} on the serializer
+    rather than attempting successive {writev} calls. *)
 
 val serialize_to_string : t -> string
 (** [serialize_to_string t] runs [t], collecting the output into a string and
-    returning it. [t] is immediately closed, and all calls to {yield} are
-    ignored. *)
+    returning it. [serialzie_to_string t] immediately closes [t] and ignores
+    any calls to {yield} on [t]. *)
