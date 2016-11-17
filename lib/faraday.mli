@@ -159,8 +159,9 @@ val shift : t -> int -> unit
     buffers that are contained in this span of bytes are [free()]'d, if
     necesasry. *)
 
-val drain : t -> unit
-(** [drain t] removes all pending writes from [t], freeing any scheduled
+val drain : t -> int
+(** [drain t] removes all pending writes from [t], returning the number of
+    bytes that were enqueued to be written and freeing any scheduled
     buffers in the process. *)
 
 

@@ -385,10 +385,13 @@ let serialize_to_string t =
   | `Yield -> assert false
 
 let drain =
-  let writev iovecs = `Ok (IOVec.lengthv iovecs) in
-  let rec loop t =
-    match serialize t writev with
-    | `Close -> ()
-    | `Yield -> loop t
+  let rec loop t acc =
+    match operation t with
+    | `Writev iovecs ->
+      let len = IOVec.lengthv iovecs in
+      shift t len;
+      loop t (len + acc)
+    | `Close         -> acc
+    | `Yield         -> loop t acc
   in
-  loop
+  fun t -> loop t 0

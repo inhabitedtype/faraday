@@ -12,7 +12,7 @@ let serialize t ~yield ~writev =
     Faraday.close t;
     (* It's necessary to drain the serializer in order to free any buffers that
      * be queued up. *)
-    Faraday.drain t
+    ignore (Faraday.drain t)
   in
   let rec loop t =
     match Faraday.operation t with
