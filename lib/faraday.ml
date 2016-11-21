@@ -44,10 +44,8 @@ type 'a iovec =
   ; off : int
   ; len : int }
 
-type free = unit -> unit
-
-module Deque : sig
-  type elem = buffer iovec * free option
+module Deque(T:sig type t val sentinel : t end) : sig
+  type elem = T.t
 
   type t
 
@@ -64,15 +62,14 @@ module Deque : sig
 
   val map_to_list : t -> f:(elem -> 'b) -> 'b list
 end = struct
-  type elem = buffer iovec * free option
+  type elem = T.t
 
   type t =
     { mutable elements : elem array
     ; mutable front    : int
     ; mutable back     : int }
 
-  let sentinel =
-    { buffer = `String "\222\173\190\239"; off = 0; len = 4 }, None
+  let sentinel = T.sentinel
 
   let create size =
     { elements = Array.make size sentinel; front = 0; back = 0 }
@@ -154,11 +151,24 @@ module IOVec = struct
     loop ts 0
 end
 
+module Buffers = Deque(struct
+  type t = buffer iovec
+  let sentinel =
+    { buffer = `String "\222\173\190\239"; off = 0; len = 4 }
+end)
+module Flushes = Deque(struct
+  type t = int * (unit -> unit)
+  let sentinel = 0, fun () -> ()
+end)
+
 type t =
   { buffer                 : bigstring
   ; mutable scheduled_pos  : int
   ; mutable write_pos      : int
-  ; scheduled              : Deque.t
+  ; scheduled              : Buffers.t
+  ; flushed                : Flushes.t
+  ; mutable bytes_received : int
+  ; mutable bytes_written  : int
   ; mutable closed         : bool
   ; mutable yield          : bool
   }
@@ -171,11 +181,14 @@ type operation = [
 
 let of_bigstring buffer =
   { buffer
-  ; write_pos     = 0
-  ; scheduled_pos = 0
-  ; scheduled     = Deque.create 4
-  ; closed        = false
-  ; yield         = false }
+  ; write_pos       = 0
+  ; scheduled_pos   = 0
+  ; scheduled       = Buffers.create 4
+  ; flushed         = Flushes.create 1
+  ; bytes_received  = 0
+  ; bytes_written   = 0
+  ; closed          = false
+  ; yield           = false }
 
 let create size =
   of_bigstring (Bigarray.(Array1.create char c_layout size))
@@ -184,8 +197,9 @@ let writable t =
   if t.closed then
     failwith "cannot write to closed writer"
 
-let schedule_iovec t ?free ?(off=0) ~len buffer =
-  Deque.enqueue (IOVec.create buffer ~off ~len, free) t.scheduled
+let schedule_iovec t ?(off=0) ~len buffer =
+  t.bytes_received <- t.bytes_received + len;
+  Buffers.enqueue (IOVec.create buffer ~off ~len) t.scheduled
 
 let flush_buffer t =
   let len = t.write_pos - t.scheduled_pos in
@@ -194,6 +208,11 @@ let flush_buffer t =
     t.scheduled_pos <- t.write_pos;
     schedule_iovec t ~off ~len (`Bigstring t.buffer)
   end
+
+let flush t f =
+  flush_buffer t;
+  if Buffers.is_empty t.scheduled then f ()
+  else Flushes.enqueue (t.bytes_received, f) t.flushed
 
 let free_bytes_in_buffer t =
   let buf_len = Bigarray.Array1.dim t.buffer in
@@ -233,7 +252,7 @@ let schedule_string t ?(off=0) ?len str =
   in
   schedule_iovec t ~off ~len (`String str)
 
-let schedule_bytes t ?free ?(off=0) ?len bytes =
+let schedule_bytes t ?(off=0) ?len bytes =
   writable t;
   flush_buffer t;
   let len =
@@ -241,14 +260,9 @@ let schedule_bytes t ?free ?(off=0) ?len bytes =
     | None -> Bytes.length bytes - off
     | Some len -> len
   in
-  let free =
-    match free with
-    | None -> None
-    | Some free -> Some (fun () -> free bytes)
-  in
-  schedule_iovec t ?free ~off ~len (`Bytes bytes)
+  schedule_iovec t ~off ~len (`Bytes bytes)
 
-let schedule_bigstring t ?free ?(off=0) ?len bigstring =
+let schedule_bigstring t ?(off=0) ?len bigstring =
   writable t;
   flush_buffer t;
   let len =
@@ -256,12 +270,7 @@ let schedule_bigstring t ?free ?(off=0) ?len bigstring =
     | None -> Bigarray.Array1.dim bigstring - off
     | Some len -> len
   in
-  let free =
-    match free with
-    | None -> None
-    | Some free -> Some (fun () -> free bigstring)
-  in
-  schedule_iovec t ?free ~off ~len (`Bigstring bigstring)
+  schedule_iovec t ~off ~len (`Bigstring bigstring)
 
 
 let write_string t ?(off=0) ?len str =
@@ -319,26 +328,35 @@ let is_closed t =
   t.closed
 
 let has_pending_output t =
-  not (Deque.is_empty t.scheduled)
+  not (Buffers.is_empty t.scheduled)
 
 let yield t =
   t.yield <- true
 
-let rec shift t written =
-  match Deque.dequeue t.scheduled with
-  | None               ->
+let rec shift_buffers t written =
+  try
+    let { len } as iovec = Buffers.dequeue_exn t.scheduled in
+    if len <= written then begin
+      shift_buffers t (written - len)
+    end else
+      Buffers.enqueue_front (IOVec.shift iovec written) t.scheduled
+  with Not_found ->
     assert (written = 0);
     t.scheduled_pos <- 0;
     t.write_pos <- 0
-  | Some (iovec, free) ->
-    if iovec.len <= written then begin
-      begin match free with
-      | None -> ()
-      | Some free -> free ()
-      end;
-      shift t (written - iovec.len)
-    end else
-      Deque.enqueue_front (IOVec.shift iovec written, free) t.scheduled
+
+let rec shift_flushes t =
+  try
+    let (threshold, f) as flush = Flushes.dequeue_exn t.flushed in
+    if t.bytes_written >= threshold then begin f (); shift_flushes t end
+    else Flushes.enqueue_front flush t.flushed
+  with Not_found ->
+    ()
+
+let shift t written =
+  shift_buffers t written;
+  t.bytes_written <- t.bytes_written + written;
+  shift_flushes t
 
 let operation t =
   if t.closed then begin
@@ -352,16 +370,15 @@ let operation t =
     t.yield <- false;
     `Yield
   end else begin
-    let iovecs = Deque.map_to_list t.scheduled ~f:fst in
+    let iovecs = Buffers.map_to_list t.scheduled ~f:(fun x -> x) in
     `Writev iovecs
   end
 
 let rec serialize t writev =
   match operation t with
   | `Writev iovecs ->
-    let len = IOVec.lengthv iovecs in
     begin match writev iovecs with
-    | `Ok   n -> shift t n; if n < len then yield t
+    | `Ok   n -> shift t n; if not (Buffers.is_empty t.scheduled) then yield t
     | `Closed -> close t
     end;
     serialize t writev

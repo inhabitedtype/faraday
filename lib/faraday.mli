@@ -94,30 +94,17 @@ val schedule_string : t -> ?off:int -> ?len:int -> string -> unit
     time the serializer surfaces writes to the user. [str] is not copied in
     this process. *)
 
-val schedule_bytes
-  :   t
-  -> ?free:(Bytes.t -> unit)
-  -> ?off:int
-  -> ?len:int
-  -> Bytes.t
-  -> unit
-  (** [schedule_bytes t ?free ?off ?len bytes] schedules [bytes] to be written
-      the next time the serializer surfaces writes to the user. [bytes] is not
-      copied in this process, so [bytes] should only be modified after the
-      [free] function has been called on [bytes], if provided. *)
+val schedule_bytes : t -> ?off:int -> ?len:int -> Bytes.t -> unit
+(** [schedule_bytes t ?off ?len bytes] schedules [bytes] to be written
+    the next time the serializer surfaces writes to the user. [bytes] is not
+    copied in this process, so [bytes] should only be modified after [t] has
+    been {!flush}ed. *)
 
-val schedule_bigstring
-  :  t
-  -> ?free:(bigstring -> unit)
-  -> ?off:int
-  -> ?len:int
-  -> bigstring
-  -> unit
-  (** [schedule_bigstring t ?free ?off ?len bigstring] schedules [bigstring] to
-      be written the next time the serializer surfaces writes to the user.
-      [bigstring] is not copied in this process, so [bigstring] should only be
-      modified after the [free] function has been called on [bigstring], if
-      provided. *)
+val schedule_bigstring : t -> ?off:int -> ?len:int -> bigstring -> unit
+(** [schedule_bigstring t ?free ?off ?len bigstring] schedules [bigstring] to
+    be written the next time the serializer surfaces writes to the user.
+    [bigstring] is not copied in this process, so [bigstring] should only be
+    modified after [t] has been {!flush}ed. *)
 
 
 (** {2 Control Operations} *)
@@ -130,6 +117,10 @@ val yield : t -> unit
     size. Barring any intervening calls to [yield t], calling the continuation
     [k] will surface writes to the user. *)
 
+val flush : t -> (unit -> unit) -> unit
+(** [flush t f] registers [f] to be called when all prior writes have been
+    successfuly completed. If [t] has no pending writes, then [f] will be
+    called immediately. *)
 
 val close : t -> unit
 (** [close t] closes [t]. All subsequent write calls will raise, and any
