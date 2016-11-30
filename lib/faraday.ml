@@ -60,7 +60,7 @@ end = struct
     t.front = t.back
 
   let ensure_space t =
-    if t.back < t.size - 1 then
+    if t.back = t.size - 1 then
       let len = t.back - t.front in
       if t.front > 0 then
         Array.blit t.elements t.front t.elements 0 len
