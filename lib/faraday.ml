@@ -62,9 +62,12 @@ end = struct
   let ensure_space t =
     if t.back = t.size - 1 then begin
       let len = t.back - t.front in
-      if t.front > 0 then
-        Array.blit t.elements t.front t.elements 0 len
-      else begin
+      if t.front > 0 then begin
+        (* Shift everything to the front of the array and then clear out
+         * dangling pointers to elements from their previous locations. *)
+        Array.blit t.elements t.front t.elements 0 len;
+        Array.fill t.elements len t.front None
+      end else begin
         let old = t.elements in
         t.size <- t.size * 2;
         t.elements <- Array.make t.size None;
