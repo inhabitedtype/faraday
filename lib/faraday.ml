@@ -34,27 +34,49 @@
 type bigstring =
   (char, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Array1.t
 
+type buffer =
+  [ `String    of string
+  | `Bytes     of Bytes.t
+  | `Bigstring of bigstring ]
+
+type 'a iovec =
+  { buffer : 'a
+  ; off : int
+  ; len : int }
+
+type free = unit -> unit
+
 module Deque : sig
-  type 'a t
+  type elem = buffer iovec * free option
 
-  val create : int -> 'a t
+  type t
 
-  val is_empty : 'a t -> bool
+  val sentinel : elem
 
-  val enqueue : 'a -> 'a t -> unit
-  val dequeue : 'a t -> 'a option
-  val enqueue_front : 'a -> 'a t -> unit
+  val create : int -> t
 
-  val map_to_list : 'a t -> f:('a -> 'b) -> 'b list
+  val is_empty : t -> bool
+
+  val enqueue : elem -> t -> unit
+  val dequeue_exn : t -> elem
+  val dequeue : t -> elem option
+  val enqueue_front : elem -> t -> unit
+
+  val map_to_list : t -> f:(elem -> 'b) -> 'b list
 end = struct
-  type 'a t =
-    { mutable elements : 'a option array
+  type elem = buffer iovec * free option
+
+  type t =
+    { mutable elements : elem array
     ; mutable front    : int
     ; mutable back     : int
     ; mutable size     : int }
 
+  let sentinel =
+    { buffer = `String "\222\173\190\239"; off = 0; len = 4 }, None
+
   let create size =
-    { elements = Array.make size None; front = 0; back = 0; size }
+    { elements = Array.make size sentinel; front = 0; back = 0; size }
 
   let is_empty t =
     t.front = t.back
@@ -66,11 +88,11 @@ end = struct
         (* Shift everything to the front of the array and then clear out
          * dangling pointers to elements from their previous locations. *)
         Array.blit t.elements t.front t.elements 0 len;
-        Array.fill t.elements len t.front None
+        Array.fill t.elements len t.front sentinel
       end else begin
         let old = t.elements in
         t.size <- t.size * 2;
-        t.elements <- Array.make t.size None;
+        t.elements <- Array.make t.size sentinel;
         Array.blit old t.front t.elements 0 len;
       end;
       t.front <- 0;
@@ -79,46 +101,37 @@ end = struct
 
   let enqueue e t =
     ensure_space t;
-    t.elements.(t.back) <- Some e;
+    t.elements.(t.back) <- e;
     t.back <- t.back + 1
 
-  let dequeue t =
+  let dequeue_exn t =
     if is_empty t then
-      None
+      raise Not_found
     else
       let result = t.elements.(t.front) in
-      t.elements.(t.front) <- None;
+      t.elements.(t.front) <- sentinel;
       t.front <- t.front + 1;
       result
 
+  let dequeue t =
+    try Some (dequeue_exn t) with Not_found -> None
+
   let enqueue_front e t =
     (* This is in general not true for Deque data structures, but the usage
-     * below ensures that there is always space to push a new element back. A
-     * [enqueue_front] is always preceded by a [dequeue], with no intervening
-     * operations. *)
+     * below ensures that there is always space to push an element back on the
+     * front. A [enqueue_front] is always preceded by a [dequeue], with no
+     * intervening operations. *)
     assert (t.front > 0);
     t.front <- t.front - 1;
-    t.elements.(t.front) <- Some e
+    t.elements.(t.front) <- e
 
   let map_to_list t ~f =
     let result = ref [] in
     for i = t.back - 1 downto t.front do
-      match t.elements.(i) with
-      | None   -> assert false
-      | Some e -> result := f e :: !result
+      result := f t.elements.(i) :: !result
     done;
     !result
 end
-
-type buffer =
-  [ `String    of string
-  | `Bytes     of Bytes.t
-  | `Bigstring of bigstring ]
-
-type 'a iovec =
-  { buffer : 'a
-  ; off : int
-  ; len : int }
 
 module IOVec = struct
   type 'a t = 'a iovec
@@ -142,14 +155,11 @@ module IOVec = struct
     loop ts 0
 end
 
-type free =
-  unit -> unit
-
 type t =
   { buffer                 : bigstring
   ; mutable scheduled_pos  : int
   ; mutable write_pos      : int
-  ; scheduled              : (buffer iovec * free option) Deque.t
+  ; scheduled              : Deque.t
   ; mutable closed         : bool
   ; mutable yield          : bool
   }
