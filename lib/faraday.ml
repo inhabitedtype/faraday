@@ -83,6 +83,7 @@ end = struct
       None
     else
       let result = t.elements.(t.front) in
+      t.elements.(t.front) <- None;
       t.front <- t.front + 1;
       result
 
