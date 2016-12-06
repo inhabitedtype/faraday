@@ -69,20 +69,19 @@ end = struct
   type t =
     { mutable elements : elem array
     ; mutable front    : int
-    ; mutable back     : int
-    ; mutable size     : int }
+    ; mutable back     : int }
 
   let sentinel =
     { buffer = `String "\222\173\190\239"; off = 0; len = 4 }, None
 
   let create size =
-    { elements = Array.make size sentinel; front = 0; back = 0; size }
+    { elements = Array.make size sentinel; front = 0; back = 0 }
 
   let is_empty t =
     t.front = t.back
 
   let ensure_space t =
-    if t.back = t.size - 1 then begin
+    if t.back = Array.length t.elements - 1 then begin
       let len = t.back - t.front in
       if t.front > 0 then begin
         (* Shift everything to the front of the array and then clear out
@@ -90,10 +89,10 @@ end = struct
         Array.blit t.elements t.front t.elements 0 len;
         Array.fill t.elements len t.front sentinel
       end else begin
-        let old = t.elements in
-        t.size <- t.size * 2;
-        t.elements <- Array.make t.size sentinel;
+        let old  = t.elements in
+        let new_ = Array.(make (2 * length old) sentinel) in
         Array.blit old t.front t.elements 0 len;
+        t.elements <- new_
       end;
       t.front <- 0;
       t.back <- len
