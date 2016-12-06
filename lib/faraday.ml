@@ -195,12 +195,12 @@ let flush_buffer t =
     schedule_iovec t ~off ~len (`Bigstring t.buffer)
   end
 
-let free_bytes_to_write t =
+let free_bytes_in_buffer t =
   let buf_len = Bigarray.Array1.dim t.buffer in
   buf_len - t.write_pos
 
 let sufficient_space t to_write =
-  free_bytes_to_write t >= to_write
+  free_bytes_in_buffer t >= to_write
 
 let bigarray_to_string ~off ~len src =
   String.init (len - off) (fun i ->

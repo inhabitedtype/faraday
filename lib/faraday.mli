@@ -130,19 +130,6 @@ val yield : t -> unit
     size. Barring any intervening calls to [yield t], calling the continuation
     [k] will surface writes to the user. *)
 
-val free_bytes_to_write : t -> int
-(** [free_bytes_to_write t] returns the free space, in bytes, of the
-    serializer's write buffer. If a call to {!write_bytes} or {!write_char} has
-    a length that exceeds the serializer's free size, the serializer will
-    allocate an additional buffer, copy the contents of the write call into
-    that buffer, and schedule it as a separate {!iovec}. If a call to
-    {!write_string} has a length that exceeds the serializer's free size, the
-    serializer will schedule it as an {!iovec} without performing a copy. *)
-
-val has_pending_output : t -> bool
-(** [has_pending_output t] is [true] if [t]'s output queue is non-empty. It may
-    be the case that [t]'s queued output is being serviced by some other thread
-    of control, but has not yet completed. *)
 
 val close : t -> unit
 (** [close t] closes [t]. All subsequent write calls will raise, and any
@@ -157,13 +144,26 @@ val is_closed : t -> bool
 val shift : t -> int -> unit
 (** [shift t n] removes the first [n] bytes in [t]'s write queue. Any scheduled
     buffers that are contained in this span of bytes are [free()]'d, if
-    necesasry. *)
+    necessary. *)
 
 val drain : t -> int
 (** [drain t] removes all pending writes from [t], returning the number of
     bytes that were enqueued to be written and freeing any scheduled
     buffers in the process. *)
 
+val free_bytes_in_buffer : t -> int
+(** [free_bytes_in_buffer t] returns the free space, in bytes, of the
+    serializer's write buffer. If a {!write_bytes} or {!write_char} call has a
+    length that exceeds this value, the serializer will allocate an additional
+    buffer, copy the contents of the write call into that buffer, and schedule
+    it as a separete {!iovec}. If a call to {!write_string} has a length that
+    exceeds this value, the serializer will schedule it as an {!iovec} without
+    performing a copy. *)
+
+val has_pending_output : t -> bool
+(** [has_pending_output t] is [true] if [t]'s output queue is non-empty. It may
+    be the case that [t]'s queued output is being serviced by some other thread
+    of control, but has not yet completed. *)
 
 (** {2 Running} *)
 
