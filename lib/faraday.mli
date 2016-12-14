@@ -31,7 +31,17 @@
     POSSIBILITY OF SUCH DAMAGE.
   ----------------------------------------------------------------------------*)
 
-(** Serialization primitives built for speed an memory-efficiency. *)
+(** Serialization primitives built for speed an memory-efficiency.
+
+    Faraday is a serialization library that gives the user fine-grained control
+    over allocation and copying while they construct their output. A Faraday
+    serializer manages an internal buffer for small writes and a write queue
+    for batching small buffered writes together with larger, non-copying
+    writes. It presents the resultant output in a form that can easily
+    interface with a simple [write] system call, a vectorized [writev] system
+    call, or any other such platform-specific I/O layer, or really another
+    awaiting code, without imposing the overhead of additional allocations or
+    copies. *)
 
 type bigstring =
   (char, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Array1.t
@@ -54,7 +64,7 @@ val of_bigstring : bigstring -> t
 
 (** {2 Buffered Writes}
 
-    Serializers manage an internal buffer for batching small writes. The size
+    Serializers manage an internal buffer for coalescing small writes. The size
     of this buffer is determined when the serializer is created and does not
     change throughout the lifetime of that serializer. If the buffer does not
     contain sufficient space to service the buffered writes of the caller, it
