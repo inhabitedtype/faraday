@@ -242,83 +242,78 @@ let bigarray_blit_from_bytes src src_off dst dst_off len =
       (dst_off + i) (Bytes.unsafe_get src (src_off + i))
   done
 
-let schedule_string t ?(off=0) ?len str =
+let schedule_gen t ~length ~to_buffer ?(off=0) ?len a =
   writable t;
   flush_buffer t;
   let len =
     match len with
-    | None -> String.length str - off
+    | None     -> length a - off
     | Some len -> len
   in
-  schedule_iovec t ~off ~len (`String str)
+  schedule_iovec t ~off ~len (to_buffer a)
 
-let schedule_bytes t ?(off=0) ?len bytes =
-  writable t;
-  flush_buffer t;
-  let len =
-    match len with
-    | None -> Bytes.length bytes - off
-    | Some len -> len
-  in
-  schedule_iovec t ~off ~len (`Bytes bytes)
+let schedule_string =
+  let to_buffer a = `String a in
+  let length      = String.length in
+  fun t ?(off=0) ?len a -> schedule_gen t ~length ~to_buffer ~off ?len a
 
-let schedule_bigstring t ?(off=0) ?len bigstring =
-  writable t;
-  flush_buffer t;
-  let len =
-    match len with
-    | None -> Bigarray.Array1.dim bigstring - off
-    | Some len -> len
-  in
-  schedule_iovec t ~off ~len (`Bigstring bigstring)
+let schedule_bytes =
+  let to_buffer a = `Bytes a in
+  let length      = Bytes.length in
+  fun t ?(off=0) ?len a -> schedule_gen t ~length ~to_buffer ~off ?len a
 
+let schedule_bigstring =
+  let to_buffer a = `Bigstring a in
+  let length      = Bigarray.Array1.dim in
+  fun t ?(off=0) ?len a -> schedule_gen t ~length ~to_buffer ~off ?len a
 
-let write_string t ?(off=0) ?len str =
+let write_gen t ~length ~blit ~schedule ?(off=0) ?len a =
   writable t;
   let len =
     match len with
-    | None -> String.length str - off
+    | None     -> length a - off
     | Some len -> len
   in
   if sufficient_space t len then begin
-    bigarray_blit_from_string str off t.buffer t.write_pos len;
+    blit a off t.buffer t.write_pos len;
     t.write_pos <- t.write_pos + len
   end else
-    schedule_string t ~off ~len str
+    schedule t ~off ~len a
 
-let write_bytes t ?(off=0) ?len bytes =
-  writable t;
-  let len =
-    match len with
-    | None -> Bytes.length bytes - off
-    | Some len -> len
+let write_string =
+  let length   = String.length in
+  let blit     = bigarray_blit_from_string in
+  let schedule t ~off ~len a = schedule_string t ~off ~len a in
+  fun t ?(off=0) ?len a -> write_gen t ~length ~blit ~schedule ~off ?len a
+
+let write_bytes =
+  let length = Bytes.length in
+  let blit   = bigarray_blit_from_bytes in
+  let schedule t ~off ~len a = schedule_string t ~off ~len (Bytes.to_string a) in
+  fun t ?(off=0) ?len a -> write_gen t ~length ~blit ~schedule ~off ?len a
+
+let write_bigstring =
+  let length = Bigarray.Array1.dim in
+  let blit   = bigarray_blit in
+  let schedule t ~off ~len a =
+    let copy = bigarray_to_string ~off ~len a in
+    schedule_string t ~off ~len copy
   in
-  if sufficient_space t len then begin
-    bigarray_blit_from_bytes bytes off t.buffer t.write_pos len;
-    t.write_pos <- t.write_pos + len
-  end else
-    schedule_string t ~off ~len (Bytes.to_string bytes)
+  fun t ?(off=0) ?len a -> write_gen t ~length ~blit ~schedule ~off ?len a
 
-let write_bigstring t ?(off=0) ?len bigstring =
-  writable t;
-  let len =
-    match len with
-    | None -> Bigarray.Array1.dim bigstring - off
-    | Some len -> len
+let write_char =
+  let length a = assert false in
+  let blit src src_off dst dst_off len =
+    assert (src_off = 0);
+    assert (len = 1);
+    Bigarray.Array1.unsafe_set dst dst_off src
   in
-  if sufficient_space t len then begin
-    bigarray_blit t.buffer t.write_pos bigstring off len;
-    t.write_pos <- t.write_pos + len
-  end else
-    schedule_string t ~off:0 ~len (bigarray_to_string ~off ~len bigstring)
-
-let write_char t char =
-  writable t;
-  if sufficient_space t 1 then begin
-    Bigarray.Array1.unsafe_set t.buffer t.write_pos char;
-    t.write_pos <- t.write_pos + 1
-  end else
-    schedule_string t (String.make 1 char)
+  let schedule t ~off ~len a =
+    assert (off = 0);
+    assert (len = 1);
+    schedule_string t ~off:0 ~len:1 (String.make 1 a)
+  in
+  fun t a -> write_gen t ~length ~blit ~schedule ~off:0 ~len:1 a
 
 let close t =
   t.closed <- true;
