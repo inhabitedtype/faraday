@@ -225,19 +225,19 @@ let bigarray_to_string ~off ~len src =
   String.init (len - off) (fun i ->
     Bigarray.Array1.unsafe_get src (off + i))
 
-let bigarray_blit dst dst_off src src_off src_len =
-  Bigarray.Array1.(blit (sub src src_off src_len) (sub dst dst_off src_len))
+let bigarray_blit src src_off dst dst_off len =
+  Bigarray.Array1.(blit (sub src src_off len) (sub dst dst_off len))
 
-let bigarray_blit_from_string dst dst_off src src_off src_len =
+let bigarray_blit_from_string src src_off dst dst_off len =
   (* XXX(seliopou): Use Cstruct to turn this into a [memcpy]. *)
-  for i = 0 to src_len - 1 do
+  for i = 0 to len - 1 do
     Bigarray.Array1.unsafe_set dst
       (dst_off + i) (String.unsafe_get src (src_off + i))
   done
 
-let bigarray_blit_from_bytes dst dst_off src src_off src_len =
+let bigarray_blit_from_bytes src src_off dst dst_off len =
   (* XXX(seliopou): Use Cstruct to turn this into a [memcpy]. *)
-  for i = 0 to src_len - 1 do
+  for i = 0 to len - 1 do
     Bigarray.Array1.unsafe_set dst
       (dst_off + i) (Bytes.unsafe_get src (src_off + i))
   done
@@ -281,7 +281,7 @@ let write_string t ?(off=0) ?len str =
     | Some len -> len
   in
   if sufficient_space t len then begin
-    bigarray_blit_from_string t.buffer t.write_pos str off len;
+    bigarray_blit_from_string str off t.buffer t.write_pos len;
     t.write_pos <- t.write_pos + len
   end else
     schedule_string t ~off ~len str
@@ -294,7 +294,7 @@ let write_bytes t ?(off=0) ?len bytes =
     | Some len -> len
   in
   if sufficient_space t len then begin
-    bigarray_blit_from_bytes t.buffer t.write_pos bytes off len;
+    bigarray_blit_from_bytes bytes off t.buffer t.write_pos len;
     t.write_pos <- t.write_pos + len
   end else
     schedule_string t ~off ~len (Bytes.to_string bytes)
