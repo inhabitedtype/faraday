@@ -27,7 +27,7 @@ Flag unix
 Library faraday
   Path:         lib
   Findlibname:  faraday
-  BuildDepends: bigarray
+  BuildDepends: bigarray, ocplib-endian, ocplib-endian.bigstring
   Modules:      Faraday
 
 Library faraday_async

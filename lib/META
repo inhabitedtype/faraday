@@ -1,8 +1,8 @@
 # OASIS_START
-# DO NOT EDIT (digest: b3c6e2ee5a9aa13f08e3bcd9ba8285b0)
+# DO NOT EDIT (digest: 9d5aa3a30e1719afab3fdeb72438dd48)
 version = "dev"
 description = "Serialization library built for speed and memory-efficiency"
-requires = "bigarray"
+requires = "bigarray ocplib-endian ocplib-endian.bigstring"
 archive(byte) = "faraday.cma"
 archive(byte, plugin) = "faraday.cma"
 archive(native) = "faraday.cmxa"

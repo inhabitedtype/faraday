@@ -67,34 +67,82 @@ val of_bigstring : bigstring -> t
     Serializers manage an internal buffer for coalescing small writes. The size
     of this buffer is determined when the serializer is created and does not
     change throughout the lifetime of that serializer. If the buffer does not
-    contain sufficient space to service the buffered writes of the caller, it
-    will cease to batch writes and begin to allocate in certain situations. See
-    the documentation for the subsequent {write_*} calls and
-    {!free_bytes_to_write} for additional details. *)
+    contain sufficient space to service the buffered writes of the caller, a
+    new buffer of the same size will be allocated.  *)
 
 val write_string : t -> ?off:int -> ?len:int -> string -> unit
 (** [write_string t ?off ?len str] copies [str] into the serializer's
-    internal buffer, if possible. In the event that there is not sufficient
-    space in the buffer, [str] will be scheduled for the next batch write, and
-    should therefore be treated as immutable. *)
+    internal buffer. *)
 
 val write_bytes : t -> ?off:int -> ?len:int -> Bytes.t -> unit
 (** [write_bytes t ?off ?len bytes] copies [bytes] into the serializer's
-    internal buffer, if possible. In the event that there is not sufficient
-    space in the buffer, [bytes] will be copied, and that sopy will be
-    scheduled for the next batch write. In either case, it is safe to modify
-    [bytes] after this call returns. *)
+    internal buffer. It is safe to modify [bytes] after this call returns. *)
 
 val write_bigstring : t -> ?off:int -> ?len:int -> bigstring -> unit
 (** [write_bigstring t ?off ?len bigstring] copies [bigstring] into the
-    serializer's internal buffer, if possible. In the event that there is not
-    sufficient space in the buffer, [bigstring] will be copied, and that sopy
-    will be scheduled for the next batch write. In either case, it is safe to
-    modify [bytes] after this call returns.  *)
+    serializer's internal buffer. It is safe to modify [bytes] after this call
+    returns.  *)
 
 val write_char : t -> char -> unit
-(** [write_char t char] copies [char] into the serializer's internal buffer, if
-    possible. *)
+(** [write_char t char] copies [char] into the serializer's internal buffer. *)
+
+val write_uint8 : t -> int -> unit
+  (** [write_uint8 t n] copies the lower 8 bits of [n] into the serializer's
+      internal buffer. *)
+
+(** Big endian serializers *)
+module BE : sig
+  val write_uint16 : t -> int -> unit
+  (** [write_uint16 t n] copies the lower 16 bits of [n] into the serializer's
+      internal buffer in big-endian byte order. *)
+
+  val write_uint32 : t -> int32 -> unit
+  (** [write_uint32 t n] copies [n] into the serializer's internal buffer in
+      big-endian byte order. *)
+
+  val write_uint48 : t -> int64 -> unit
+  (** [write_uint48 t n] copies the lower 48 bits of [n] into the serializer's
+      internal buffer in big-endian byte order. *)
+
+  val write_uint64 : t -> int64 -> unit
+  (** [write_uint64 t n] copies [n] into the serializer's internal buffer in
+      big-endian byte order. *)
+
+  val write_float : t -> float -> unit
+  (** [write_float t n] copies the lower 32 bits of [n] into the serializer's
+      internal buffer in big-endian byte order. *)
+
+  val write_double : t -> float -> unit
+  (** [write_float t n] copies [n] into the serializer's internal buffer in
+      big-endian byte order. *)
+end
+
+(** Little endian serializers *)
+module LE : sig
+  val write_uint16 : t -> int -> unit
+  (** [write_uint16 t n] copies the lower 16 bits of [n] into the
+      serializer's internal buffer in little-endian byte order. *)
+
+  val write_uint32 : t -> int32 -> unit
+  (** [write_uint32 t n] copies [n] into the serializer's internal buffer in
+      little-endian byte order. *)
+
+  val write_uint48 : t -> int64 -> unit
+  (** [write_uint48 t n] copies the lower 48 bits of [n] into the serializer's
+      internal buffer in little-endian byte order. *)
+
+  val write_uint64 : t -> int64 -> unit
+  (** [write_uint64 t n] copies [n] into the serializer's internal buffer in
+      little-endian byte order. *)
+
+  val write_float : t -> float -> unit
+  (** [write_float t n] copies the lower 32 bits of [n] into the serializer's
+      internal buffer in little-endian byte order. *)
+
+  val write_double : t -> float -> unit
+  (** [write_float t n] copies [n] into the serializer's internal buffer in
+      little-endian byte order. *)
+end
 
 
 (** {2 Unbuffered Writes} *)
@@ -154,17 +202,15 @@ val drain : t -> int
 
 val free_bytes_in_buffer : t -> int
 (** [free_bytes_in_buffer t] returns the free space, in bytes, of the
-    serializer's write buffer. If a {!write_bytes} or {!write_char} call has a
-    length that exceeds this value, the serializer will allocate an additional
-    buffer, copy the contents of the write call into that buffer, and schedule
-    it as a separete {!iovec}. If a call to {!write_string} has a length that
-    exceeds this value, the serializer will schedule it as an {!iovec} without
-    performing a copy. *)
+    serializer's write buffer. If a {write_*} call has a length that exceeds
+    this value, the serializer will allocate a new buffer that will replace the
+    serializer's internal buffer for that and subsequent calls. *)
 
 val has_pending_output : t -> bool
 (** [has_pending_output t] is [true] if [t]'s output queue is non-empty. It may
     be the case that [t]'s queued output is being serviced by some other thread
     of control, but has not yet completed. *)
+
 
 (** {2 Running} *)
 

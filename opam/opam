@@ -25,6 +25,7 @@ build-test: [
 depends: [
   "alcotest" {test & >= "0.4.1"}
   "ocamlfind" {build}
+  "ocplib-endian" {>= "0.8"}
 ]
 depopts: [
   "async"

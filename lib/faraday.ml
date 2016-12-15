@@ -162,7 +162,7 @@ module Flushes = Deque(struct
 end)
 
 type t =
-  { buffer                 : bigstring
+  { mutable buffer         : bigstring
   ; mutable scheduled_pos  : int
   ; mutable write_pos      : int
   ; scheduled              : Buffers.t
@@ -218,9 +218,6 @@ let free_bytes_in_buffer t =
   let buf_len = Bigarray.Array1.dim t.buffer in
   buf_len - t.write_pos
 
-let sufficient_space t to_write =
-  free_bytes_in_buffer t >= to_write
-
 let bigarray_to_string ~off ~len src =
   String.init (len - off) (fun i ->
     Bigarray.Array1.unsafe_get src (off + i))
@@ -267,53 +264,127 @@ let schedule_bigstring =
   let length      = Bigarray.Array1.dim in
   fun t ?(off=0) ?len a -> schedule_gen t ~length ~to_buffer ~off ?len a
 
-let write_gen t ~length ~blit ~schedule ?(off=0) ?len a =
+let ensure_space t len =
+  if free_bytes_in_buffer t < len then begin
+    flush_buffer t;
+    t.buffer <- Bigarray.(Array1.create char c_layout (Array1.dim t.buffer))
+  end
+
+let write_gen t ~length ~blit ?(off=0) ?len a =
   writable t;
   let len =
     match len with
     | None     -> length a - off
     | Some len -> len
   in
-  if sufficient_space t len then begin
-    blit a off t.buffer t.write_pos len;
-    t.write_pos <- t.write_pos + len
-  end else
-    schedule t ~off ~len a
+  ensure_space t len;
+  blit a off t.buffer t.write_pos len;
+  t.write_pos <- t.write_pos + len
 
 let write_string =
   let length   = String.length in
   let blit     = bigarray_blit_from_string in
-  let schedule t ~off ~len a = schedule_string t ~off ~len a in
-  fun t ?(off=0) ?len a -> write_gen t ~length ~blit ~schedule ~off ?len a
+  fun t ?(off=0) ?len a -> write_gen t ~length ~blit ~off ?len a
 
 let write_bytes =
   let length = Bytes.length in
   let blit   = bigarray_blit_from_bytes in
-  let schedule t ~off ~len a = schedule_string t ~off ~len (Bytes.to_string a) in
-  fun t ?(off=0) ?len a -> write_gen t ~length ~blit ~schedule ~off ?len a
+  fun t ?(off=0) ?len a -> write_gen t ~length ~blit ~off ?len a
 
 let write_bigstring =
   let length = Bigarray.Array1.dim in
   let blit   = bigarray_blit in
-  let schedule t ~off ~len a =
-    let copy = bigarray_to_string ~off ~len a in
-    schedule_string t ~off ~len copy
-  in
-  fun t ?(off=0) ?len a -> write_gen t ~length ~blit ~schedule ~off ?len a
+  fun t ?(off=0) ?len a -> write_gen t ~length ~blit ~off ?len a
 
 let write_char =
   let length a = assert false in
   let blit src src_off dst dst_off len =
     assert (src_off = 0);
     assert (len = 1);
-    Bigarray.Array1.unsafe_set dst dst_off src
+    EndianBigstring.BigEndian_unsafe.set_char dst dst_off src
   in
-  let schedule t ~off ~len a =
-    assert (off = 0);
+  fun t a -> write_gen t ~length ~blit ~off:0 ~len:1 a
+
+let write_uint8 =
+  let length a = assert false in
+  let blit src src_off dst dst_off len =
+    assert (src_off = 0);
     assert (len = 1);
-    schedule_string t ~off:0 ~len:1 (String.make 1 a)
+    EndianBigstring.BigEndian_unsafe.set_int8 dst dst_off src
   in
-  fun t a -> write_gen t ~length ~blit ~schedule ~off:0 ~len:1 a
+  fun t a -> write_gen t ~length ~blit ~off:0 ~len:1 a
+
+module type EndianBigstringSig = EndianBigstring.EndianBigstringSig
+module type EndianBytesSig = EndianBytes.EndianBytesSig
+
+module Make_endian(EBigstring:EndianBigstringSig)(EBytes:EndianBytesSig) = struct
+  let unused_length a = assert false
+
+  let write_uint16 =
+    let length = unused_length in
+    let blit src src_off dst dst_off len =
+      assert (src_off = 0);
+      assert (len = 2);
+      EBigstring.set_int16 dst dst_off src
+    in
+    fun t a -> write_gen t ~length ~blit ~off:0 ~len:2 a
+
+  let write_uint32 =
+    let length = unused_length in
+    let blit src src_off dst dst_off len =
+      assert (src_off = 0);
+      assert (len = 4);
+      EBigstring.set_int32 dst dst_off src
+    in
+    fun t a -> write_gen t ~length ~blit ~off:0 ~len:4 a
+
+  let write_uint64 =
+    let length = unused_length in
+    let blit src src_off dst dst_off len =
+      assert (src_off = 0);
+      assert (len = 8);
+      EBigstring.set_int64 dst dst_off src
+    in
+    fun t a -> write_gen t ~length ~blit ~off:0 ~len:8 a
+
+  let write_float =
+    let length = unused_length in
+    let blit src src_off dst dst_off len =
+      assert (src_off = 0);
+      assert (len = 4);
+      EBigstring.set_float dst dst_off src
+    in
+    fun t a -> write_gen t ~length ~blit ~off:0 ~len:4 a
+
+  let write_double =
+    let length = unused_length in
+    let blit src src_off dst dst_off len =
+      assert (src_off = 0);
+      assert (len = 8);
+      EBigstring.set_float dst dst_off src
+    in
+    fun t a -> write_gen t ~length ~blit ~off:0 ~len:8 a
+end
+
+module LE = struct
+  include Make_endian
+    (EndianBigstring.LittleEndian_unsafe)
+    (EndianBytes.LittleEndian_unsafe)
+
+  let write_uint48 t a =
+    write_uint16 t Int64.(to_int a);
+    write_uint32 t Int64.(to_int32 (shift_right_logical a 2));
+end
+
+module BE = struct
+  include Make_endian
+    (EndianBigstring.BigEndian_unsafe)
+    (EndianBytes.BigEndian_unsafe)
+
+  let write_uint48 t a =
+    write_uint16 t Int64.(to_int (shift_right_logical a 4));
+    write_uint32 t Int64.(to_int32 a);
+end
 
 let close t =
   t.closed <- true;
