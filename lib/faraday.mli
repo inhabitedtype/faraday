@@ -33,15 +33,22 @@
 
 (** Serialization primitives built for speed an memory-efficiency.
 
-    Faraday is a serialization library that gives the user fine-grained control
-    over allocation and copying while they construct their output. A Faraday
-    serializer manages an internal buffer for small writes and a write queue
-    for batching small buffered writes together with larger, non-copying
-    writes. It presents the resultant output in a form that can easily
-    interface with a simple [write] system call, a vectorized [writev] system
-    call, or any other such platform-specific I/O layer, or really another
-    awaiting code, without imposing the overhead of additional allocations or
-    copies. *)
+    Faraday is a library of low-level primitives for writing serializers for
+    user-defined datatypes. Its primitives provide the user fine-grained
+    control over copying and allocation behavior, and presents serialization
+    output in a form that is suitable for use with vectorized writes via the
+    [writev] system call or any other platform or application-specific output
+    subsystem.
+
+    A Faraday serializer manages an internal buffer and a queue of output
+    buffers. The output bufferes may be a sub range of the serializer's
+    internal buffer or one that is user-provided. Buffered writes such as
+    {!write_string}, {!write_char}, {!write_bigstring}, etc., copy the source
+    bytes into the serializer's internal buffer. Unbuffered writes such as
+    {!schedule_string}, {!schedule_bigstring}, etc., on the other hand perform
+    no copying. Instead, they enqueue the source bytes into the serializer's
+    write queue directly. *)
+
 
 type bigstring =
   (char, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Array1.t
@@ -177,7 +184,7 @@ val yield : t -> unit
 
 val flush : t -> (unit -> unit) -> unit
 (** [flush t f] registers [f] to be called when all prior writes have been
-    successfuly completed. If [t] has no pending writes, then [f] will be
+    successfully completed. If [t] has no pending writes, then [f] will be
     called immediately. *)
 
 val close : t -> unit
@@ -243,7 +250,7 @@ val operation : t -> operation
 (** [operation t] is the next operation that the caller must perform on behalf
     of the serializer [t]. Users should consider using {serialize} before this
     function. See the documentation for the {operator} type for details on how
-    callers hould handle these operations. *)
+    callers should handle these operations. *)
 
 val serialize : t -> (buffer iovec list -> [`Ok of int | `Closed]) -> [`Yield | `Close]
 (** [serialize t writev] sufaces the next operation of [t] to the caller,
