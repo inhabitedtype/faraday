@@ -1,7 +1,14 @@
 # Faraday
 
-Faraday is a serialization library that makese it easy to write efficient and
-reusable serializers suitable for high-performance applications.
+Faraday is a library of low-level primitives for writing serializers for
+user-defined datatypes. Its primitives provide the user fine-grained control
+over copying and allocation behavior, and presents serialization output in a
+form that is suitable for use with vectorized writes via the [writev][] system
+call or any other platform or application-specific output interfaces.
+
+[![Build Status](https://travis-ci.org/inhabitedtype/faraday.svg?branch=master)](https://travis-ci.org/inhabitedtype/faraday)
+
+[writev]: http://man7.org/linux/man-pages/man2/writev.2.html
 
 ## Installation
 
