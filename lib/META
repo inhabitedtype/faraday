@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 9d5aa3a30e1719afab3fdeb72438dd48)
+# DO NOT EDIT (digest: ab59c28122af5ac111219914acc302f6)
 version = "dev"
 description = "Serialization library built for speed and memory-efficiency"
 requires = "bigarray ocplib-endian ocplib-endian.bigstring"
@@ -33,7 +33,7 @@ package "lwt" (
 package "async" (
  version = "dev"
  description = "Serialization library built for speed and memory-efficiency"
- requires = "faraday core async threads"
+ requires = "async core faraday threads"
  archive(byte) = "faraday_async.cma"
  archive(byte, plugin) = "faraday_async.cma"
  archive(native) = "faraday_async.cmxa"
