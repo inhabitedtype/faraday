@@ -77,6 +77,15 @@ val of_bigstring : bigstring -> t
     contain sufficient space to service the buffered writes of the caller, a
     new buffer of the same size will be allocated.  *)
 
+val write_gen : t ->
+  length:('a -> int) ->
+  blit:('a -> int -> bigstring -> int -> int -> unit) ->
+  ?off:int ->
+  ?len:int ->
+  'a -> unit
+(** [write_gen t ~length ~blit ?off ?len x] copies [x] into the serializer's
+    internal buffer using the provided [length] and [blit] operations. *)
+
 val write_string : t -> ?off:int -> ?len:int -> string -> unit
 (** [write_string t ?off ?len str] copies [str] into the serializer's
     internal buffer. *)
