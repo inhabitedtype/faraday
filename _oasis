@@ -9,7 +9,14 @@ License:     BSD-3-clause
 Plugins:     META (0.4), DevFiles (0.4)
 BuildTools:  ocamlbuild
 OCamlVersion:>= 4.02
-Synopsis:    Serialization library built for speed and memory-efficiency
+Synopsis:    A library for writing fast and memory-efficient serializers.
+Description:
+    Faraday is a library for writing fast and memory-efficient serializers. Its
+    core type and related operation gives the user fine-grained control over
+    copying and allocation behavior while serializing user-defined types, and
+    presents the output in a form that makes it possible to use vectorized
+    write operations, such as the writev system call, or any other platform or
+    application-specific output APIs.
 
 
 Flag async

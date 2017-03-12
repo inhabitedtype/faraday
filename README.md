@@ -1,10 +1,12 @@
 # Faraday
 
-Faraday is a library of low-level primitives for writing serializers for
-user-defined datatypes. Its primitives provide the user fine-grained control
-over copying and allocation behavior, and presents serialization output in a
-form that is suitable for use with vectorized writes via the [writev][] system
-call or any other platform or application-specific output interfaces.
+Faraday is a library for writing fast and memory-efficient serializers. Its
+core type and related operation gives the user fine-grained control over
+copying and allocation behavior while serializing user-defined types, and
+presents the output in a form that makes it possible to use vectorized write
+operations, such as the [writev][] system call, or any other platform or
+application-specific output APIs.
+
 
 [![Build Status](https://travis-ci.org/inhabitedtype/faraday.svg?branch=master)](https://travis-ci.org/inhabitedtype/faraday)
 
