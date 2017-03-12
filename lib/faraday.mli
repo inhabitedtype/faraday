@@ -99,6 +99,16 @@ val write_bigstring : t -> ?off:int -> ?len:int -> bigstring -> unit
     serializer's internal buffer. It is safe to modify [bytes] after this call
     returns.  *)
 
+val write_gen
+  :  t
+  -> length:('a -> int)
+  -> blit:('a -> int -> bigstring -> int -> int -> unit)
+  -> ?off:int
+  -> ?len:int
+  -> 'a -> unit
+(** [write_gen t ~length ~blit ?off ?len x] copies [x] into the serializer's
+    internal buffer using the provided [length] and [blit] operations. *)
+
 val write_char : t -> char -> unit
 (** [write_char t char] copies [char] into the serializer's internal buffer. *)
 
