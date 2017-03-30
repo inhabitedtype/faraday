@@ -33,12 +33,13 @@
 
 (** Serialization primitives built for speed an memory-efficiency.
 
-    Faraday is a library of low-level primitives for writing serializers for
-    user-defined datatypes. Its primitives provide the user fine-grained
-    control over copying and allocation behavior, and presents serialization
-    output in a form that is suitable for use with vectorized writes via the
-    [writev] system call or any other platform or application-specific output
-    subsystem.
+
+    Faraday is a library for writing fast and memory-efficient serializers. Its
+    core type and related operation gives the user fine-grained control over
+    copying and allocation behavior while serializing user-defined types, and
+    presents the output in a form that makes it possible to use vectorized
+    write operations, such as the [writev][] system call, or any other platform
+    or application-specific output APIs.
 
     A Faraday serializer manages an internal buffer and a queue of output
     buffers. The output bufferes may be a sub range of the serializer's
@@ -98,6 +99,16 @@ val write_bigstring : t -> ?off:int -> ?len:int -> bigstring -> unit
 (** [write_bigstring t ?off ?len bigstring] copies [bigstring] into the
     serializer's internal buffer. It is safe to modify [bytes] after this call
     returns.  *)
+
+val write_gen
+  :  t
+  -> length:('a -> int)
+  -> blit:('a -> int -> bigstring -> int -> int -> unit)
+  -> ?off:int
+  -> ?len:int
+  -> 'a -> unit
+(** [write_gen t ~length ~blit ?off ?len x] copies [x] into the serializer's
+    internal buffer using the provided [length] and [blit] operations. *)
 
 val write_char : t -> char -> unit
 (** [write_char t char] copies [char] into the serializer's internal buffer. *)

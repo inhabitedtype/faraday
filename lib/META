@@ -1,7 +1,7 @@
 # OASIS_START
-# DO NOT EDIT (digest: ab59c28122af5ac111219914acc302f6)
+# DO NOT EDIT (digest: 9e3bce218cef899cb8c71404bb9e4802)
 version = "dev"
-description = "Serialization library built for speed and memory-efficiency"
+description = "A library for writing fast and memory-efficient serializers."
 requires = "bigarray ocplib-endian ocplib-endian.bigstring"
 archive(byte) = "faraday.cma"
 archive(byte, plugin) = "faraday.cma"
@@ -10,7 +10,7 @@ archive(native, plugin) = "faraday.cmxs"
 exists_if = "faraday.cma"
 package "lwt-unix" (
  version = "dev"
- description = "Serialization library built for speed and memory-efficiency"
+ description = "A library for writing fast and memory-efficient serializers."
  requires = "faraday.lwt lwt.unix"
  archive(byte) = "faraday_lwt_unix.cma"
  archive(byte, plugin) = "faraday_lwt_unix.cma"
@@ -21,7 +21,7 @@ package "lwt-unix" (
 
 package "lwt" (
  version = "dev"
- description = "Serialization library built for speed and memory-efficiency"
+ description = "A library for writing fast and memory-efficient serializers."
  requires = "faraday lwt"
  archive(byte) = "faraday_lwt.cma"
  archive(byte, plugin) = "faraday_lwt.cma"
@@ -32,7 +32,7 @@ package "lwt" (
 
 package "async" (
  version = "dev"
- description = "Serialization library built for speed and memory-efficiency"
+ description = "A library for writing fast and memory-efficient serializers."
  requires = "async core faraday threads"
  archive(byte) = "faraday_async.cma"
  archive(byte, plugin) = "faraday_async.cma"
