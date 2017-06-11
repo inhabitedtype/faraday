@@ -104,8 +104,8 @@ end = struct
     if is_empty t then
       raise Not_found
     else
-      let result = t.elements.(t.front) in
-      t.elements.(t.front) <- sentinel;
+      let result = Array.unsafe_get t.elements t.front in
+      Array.unsafe_set t.elements t.front sentinel;
       t.front <- t.front + 1;
       result
 
