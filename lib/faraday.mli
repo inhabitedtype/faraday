@@ -238,6 +238,10 @@ val has_pending_output : t -> bool
     be the case that [t]'s queued output is being serviced by some other thread
     of control, but has not yet completed. *)
 
+val pending_bytes : t -> int
+(** [pending_bytes t] is the size of the next write, in bytes, that [t] will
+    surface to the caller. *)
+
 
 (** {2 Running} *)
 

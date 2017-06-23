@@ -247,7 +247,7 @@ let schedule_gen t ~length ~to_buffer ?(off=0) ?len a =
     | None     -> length a - off
     | Some len -> len
   in
-  schedule_iovec t ~off ~len (to_buffer a)
+  if len > 0 then schedule_iovec t ~off ~len (to_buffer a)
 
 let schedule_string =
   let to_buffer a = `String a in
@@ -393,8 +393,11 @@ let close t =
 let is_closed t =
   t.closed
 
+let pending_bytes t =
+  (t.write_pos - t.scheduled_pos) + (t.bytes_received - t.bytes_written)
+
 let has_pending_output t =
-  not (Buffers.is_empty t.scheduled)
+  pending_bytes t <> 0
 
 let yield t =
   t.yield <- true

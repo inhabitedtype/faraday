@@ -40,9 +40,9 @@ let empty =
       check ~iovecs:0 ~msg:"bigstring" [`Write_bigstring ""] ""
   end
   ; "schedule", `Quick, begin fun () ->
-      check ~iovecs:1 ~msg:"string"    [`Schedule_string    ""] "";
-      check ~iovecs:1 ~msg:"bytes"     [`Schedule_bytes     ""] "";
-      check ~iovecs:1 ~msg:"bigstring" [`Schedule_bigstring ""] ""
+      check ~iovecs:0 ~msg:"string"    [`Schedule_string    ""] "";
+      check ~iovecs:0 ~msg:"bytes"     [`Schedule_bytes     ""] "";
+      check ~iovecs:0 ~msg:"bigstring" [`Schedule_bigstring ""] ""
   end ]
 
 let write =
