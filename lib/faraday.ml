@@ -252,17 +252,17 @@ let schedule_gen t ~length ~to_buffer ?(off=0) ?len a =
 let schedule_string =
   let to_buffer a = `String a in
   let length      = String.length in
-  fun t ?(off=0) ?len a -> schedule_gen t ~length ~to_buffer ~off ?len a
+  fun t ?off ?len a -> schedule_gen t ~length ~to_buffer ?off ?len a
 
 let schedule_bytes =
   let to_buffer a = `Bytes a in
   let length      = Bytes.length in
-  fun t ?(off=0) ?len a -> schedule_gen t ~length ~to_buffer ~off ?len a
+  fun t ?off ?len a -> schedule_gen t ~length ~to_buffer ?off ?len a
 
 let schedule_bigstring =
   let to_buffer a = `Bigstring a in
   let length      = Bigarray.Array1.dim in
-  fun t ?(off=0) ?len a -> schedule_gen t ~length ~to_buffer ~off ?len a
+  fun t ?off ?len a -> schedule_gen t ~length ~to_buffer ?off ?len a
 
 let ensure_space t len =
   if free_bytes_in_buffer t < len then begin
@@ -284,17 +284,17 @@ let write_gen t ~length ~blit ?(off=0) ?len a =
 let write_string =
   let length   = String.length in
   let blit     = bigarray_blit_from_string in
-  fun t ?(off=0) ?len a -> write_gen t ~length ~blit ~off ?len a
+  fun t ?off ?len a -> write_gen t ~length ~blit ?off ?len a
 
 let write_bytes =
   let length = Bytes.length in
   let blit   = bigarray_blit_from_bytes in
-  fun t ?(off=0) ?len a -> write_gen t ~length ~blit ~off ?len a
+  fun t ?off ?len a -> write_gen t ~length ~blit ?off ?len a
 
 let write_bigstring =
   let length = Bigarray.Array1.dim in
   let blit   = bigarray_blit in
-  fun t ?(off=0) ?len a -> write_gen t ~length ~blit ~off ?len a
+  fun t ?off ?len a -> write_gen t ~length ~blit ?off ?len a
 
 let write_char =
   let length a = assert false in
