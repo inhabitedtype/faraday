@@ -196,7 +196,7 @@ val schedule_bigstring : t -> ?off:int -> ?len:int -> bigstring -> unit
 
 val yield : t -> unit
 (** [yield t] causes [t] to delay surfacing writes to the user, instead
-    returning a {!Yield} operation with an associated continuation [k]. This
+    returning a [`Yield] operation with an associated continuation [k]. This
     gives the serializer an opportunity to collect additional writes before
     sending them to the underlying device, which will increase the write batch
     size. Barring any intervening calls to [yield t], calling the continuation
@@ -209,9 +209,9 @@ val flush : t -> (unit -> unit) -> unit
 
 val close : t -> unit
 (** [close t] closes [t]. All subsequent write calls will raise, and any
-    pending or subsequent {yield} calls will be ignored. If the serializer has
+    pending or subsequent {!yield} calls will be ignored. If the serializer has
     any pending writes, user code will have an opportunity to service them
-    before it receives the {Close} operation. *)
+    before it receives the [Close] operation. *)
 
 val is_closed : t -> bool
 (** [is_closed t] is [true] if [close] has been called on [t] and [false]
@@ -254,7 +254,7 @@ type 'a iovec =
   { buffer : 'a
   ; off : int
   ; len : int }
-(** A view into {buffer} starting at {off} and with length {len}. *)
+(** A view into {!iovec.buffer} starting at {!iovec.off} and with length {!iovec.len}. *)
 
 type operation = [
   | `Writev of buffer iovec list
@@ -265,25 +265,25 @@ type operation = [
     (** Yield to other threads of control, waiting for additional output before
         procedding. The method for achieving this is application-specific, but
         once complete, the caller can proceed with serialization by simply
-        making another call to {!operation} or {serialize}. *)
+        making another call to {!operation} or {!serialize}. *)
   | `Close
     (** Serialization is complete. No further output will be received. *)
   ]
 
 val operation : t -> operation
 (** [operation t] is the next operation that the caller must perform on behalf
-    of the serializer [t]. Users should consider using {serialize} before this
-    function. See the documentation for the {operator} type for details on how
-    callers should handle these operations. *)
+    of the serializer [t]. Users should consider using {!serialize} before this
+    function. See the documentation for the {!type:operation} type for details
+    on how callers should handle these operations. *)
 
 val serialize : t -> (buffer iovec list -> [`Ok of int | `Closed]) -> [`Yield | `Close]
 (** [serialize t writev] sufaces the next operation of [t] to the caller,
     handling a [`Writev] operation with [writev] function and performing an
     additional bookkeeping on the caller's behalf. In the event that [writev]
-    indicates a partial write, {serialize} will call {yield} on the serializer
-    rather than attempting successive {writev} calls. *)
+    indicates a partial write, {!serialize} will call {!yield} on the serializer
+    rather than attempting successive [writev] calls. *)
 
 val serialize_to_string : t -> string
 (** [serialize_to_string t] runs [t], collecting the output into a string and
     returning it. [serialzie_to_string t] immediately closes [t] and ignores
-    any calls to {yield} on [t]. *)
+    any calls to {!yield} on [t]. *)

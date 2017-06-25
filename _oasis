@@ -41,6 +41,14 @@ Library faraday
   Modules:
     Faraday
 
+Document api
+  Title:                Documentation and API reference
+  Type:                 ocamlbuild (0.4)
+  BuildTools+:          ocamldoc
+  Install:              true
+  XOCamlBuildPath:      lib
+  XOCamlBuildLibraries: faraday
+
 Library faraday_async
   Path:           async
   Findlibname:    async
