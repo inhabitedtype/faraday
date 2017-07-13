@@ -1,10 +1,10 @@
 type file_descr = Unix.file_descr
 let bytes_unsafe_to_string = Bytes.unsafe_to_string
 
-open Core.Std
-open Async.Std
+open Core
+open Async
 
-module Unix = Core.Std.Unix
+module Unix = Core.Unix
 
 
 let serialize t ~yield ~writev =

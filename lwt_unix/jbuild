@@ -1,0 +1,7 @@
+(jbuild_version 1)
+
+(library
+ ((name faraday_lwt_unix)
+  (public_name faraday-lwt-unix)
+  (wrapped false)
+  (libraries (faraday lwt faraday-lwt))))

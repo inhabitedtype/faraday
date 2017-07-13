@@ -1,0 +1,16 @@
+# JBUILDER_GEN
+
+package "lwt" (
+  description = "Deprecated. Use faraday-lwt directly"
+  requires = "faraday-lwt"
+)
+
+package "lwt-unix" (
+  description = "Deprecated. Use faraday-lwt-unix directly"
+  requires = "faraday-lwt-unix"
+)
+
+package "async" (
+  description = "Deprecated. Use faraday-async directly"
+  requires = "faraday-async"
+)
