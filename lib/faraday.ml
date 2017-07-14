@@ -296,79 +296,119 @@ let write_char t c =
 let write_uint8 t b =
   writable t;
   ensure_space t 1;
-  BA.unsafe_set t.buffer t.write_pos (Char.unsafe_chr b);
+  Bigarray.Array1.unsafe_set t.buffer t.write_pos (Char.unsafe_chr b);
   t.write_pos <- t.write_pos + 1
 
-module type EndianBigstringSig = EndianBigstring.EndianBigstringSig
-module type EndianBytesSig = EndianBytes.EndianBytesSig
+external caml_bigstring_set_16u : bigstring -> int -> int -> unit = "%caml_bigstring_set16u"
+external caml_bigstring_set_32u : bigstring -> int -> int32 -> unit = "%caml_bigstring_set32u"
+external caml_bigstring_set_64u : bigstring -> int -> int64 -> unit = "%caml_bigstring_set64u"
 
-module Make_endian(EBigstring:EndianBigstringSig)(EBytes:EndianBytesSig) = struct
-  let unused_length a = assert false
+module Swap = struct
+  external bswap16 : int -> int = "%bswap16"
+  external bswap_int32 : int32 -> int32 = "%bswap_int32"
+  external bswap_int64 : int64 -> int64 = "%bswap_int64"
 
-  let write_uint16 =
-    let length = unused_length in
-    let blit src src_off dst dst_off len =
-      assert (src_off = 0);
-      assert (len = 2);
-      EBigstring.set_int16 dst dst_off src
-    in
-    fun t a -> write_gen t ~length ~blit ~off:0 ~len:2 a
+  let caml_bigstring_set_16u bs off i =
+    caml_bigstring_set_16u bs off (bswap16 i)
 
-  let write_uint32 =
-    let length = unused_length in
-    let blit src src_off dst dst_off len =
-      assert (src_off = 0);
-      assert (len = 4);
-      EBigstring.set_int32 dst dst_off src
-    in
-    fun t a -> write_gen t ~length ~blit ~off:0 ~len:4 a
+  let caml_bigstring_set_32u bs off i =
+    caml_bigstring_set_32u bs off (bswap_int32 i)
 
-  let write_uint64 =
-    let length = unused_length in
-    let blit src src_off dst dst_off len =
-      assert (src_off = 0);
-      assert (len = 8);
-      EBigstring.set_int64 dst dst_off src
-    in
-    fun t a -> write_gen t ~length ~blit ~off:0 ~len:8 a
-
-  let write_float =
-    let length = unused_length in
-    let blit src src_off dst dst_off len =
-      assert (src_off = 0);
-      assert (len = 4);
-      EBigstring.set_float dst dst_off src
-    in
-    fun t a -> write_gen t ~length ~blit ~off:0 ~len:4 a
-
-  let write_double =
-    let length = unused_length in
-    let blit src src_off dst dst_off len =
-      assert (src_off = 0);
-      assert (len = 8);
-      EBigstring.set_double dst dst_off src
-    in
-    fun t a -> write_gen t ~length ~blit ~off:0 ~len:8 a
+  let caml_bigstring_set_64u bs off i =
+    caml_bigstring_set_64u bs off (bswap_int64 i)
 end
 
-module LE = struct
-  include Make_endian
-    (EndianBigstring.LittleEndian_unsafe)
-    (EndianBytes.LittleEndian_unsafe)
+let unsafe_set_16_be, unsafe_set_16_le =
+  if Sys.big_endian
+  then Swap.caml_bigstring_set_16u, caml_bigstring_set_16u
+  else caml_bigstring_set_16u     , Swap.caml_bigstring_set_16u
 
-  let write_uint48 t a =
-    write_uint16 t Int64.(to_int a);
-    write_uint32 t Int64.(to_int32 (shift_right_logical a 2));
+let unsafe_set_32_be, unsafe_set_32_le =
+  if Sys.big_endian
+  then Swap.caml_bigstring_set_32u, caml_bigstring_set_32u
+  else caml_bigstring_set_32u     , Swap.caml_bigstring_set_32u
+
+let unsafe_set_64_be, unsafe_set_64_le =
+  if Sys.big_endian
+  then Swap.caml_bigstring_set_64u, caml_bigstring_set_64u
+  else caml_bigstring_set_64u     , Swap.caml_bigstring_set_64u
+
+module Be = struct
+  let write_uint16 t i =
+    writable t;
+    ensure_space t 2;
+    unsafe_set_16_be t.buffer t.write_pos i;
+    t.write_pos <- t.write_pos + 2
+
+  let write_uint32 t i =
+    writable t;
+    ensure_space t 4;
+    unsafe_set_32_be t.buffer t.write_pos i;
+    t.write_pos <- t.write_pos + 4
+
+  let write_uint48 t i =
+    writable t;
+    ensure_space t 6;
+    unsafe_set_32_be t.buffer t.write_pos       Int64.(to_int32 (shift_right_logical i 4));
+    unsafe_set_16_be t.buffer (t.write_pos + 2) Int64.(to_int i);
+    t.write_pos <- t.write_pos + 6
+
+  let write_uint64 t i =
+    writable t;
+    ensure_space t 8;
+    unsafe_set_64_be t.buffer t.write_pos i;
+    t.write_pos <- t.write_pos + 8
+
+  let write_float t f =
+    writable t;
+    ensure_space t 4;
+    unsafe_set_32_be t.buffer t.write_pos (Int32.bits_of_float f);
+    t.write_pos <- t.write_pos + 4
+
+  let write_double t d =
+    writable t;
+    ensure_space t 8;
+    unsafe_set_64_be t.buffer t.write_pos (Int64.bits_of_float d);
+    t.write_pos <- t.write_pos + 8
 end
 
-module BE = struct
-  include Make_endian
-    (EndianBigstring.BigEndian_unsafe)
-    (EndianBytes.BigEndian_unsafe)
+module Le = struct
+  let write_uint16 t i =
+    writable t;
+    ensure_space t 2;
+    unsafe_set_16_le t.buffer t.write_pos i;
+    t.write_pos <- t.write_pos + 2
 
-  let write_uint48 t a =
-    write_uint16 t Int64.(to_int (shift_right_logical a 4));
-    write_uint32 t Int64.(to_int32 a);
+  let write_uint32 t i =
+    writable t;
+    ensure_space t 4;
+    unsafe_set_32_le t.buffer t.write_pos i;
+    t.write_pos <- t.write_pos + 4
+
+  let write_uint48 t i =
+    writable t;
+    ensure_space t 6;
+    unsafe_set_16_le t.buffer t.write_pos       Int64.(to_int i);
+    unsafe_set_32_le t.buffer (t.write_pos + 2) Int64.(to_int32 (shift_right_logical i 2));
+    t.write_pos <- t.write_pos + 6
+
+  let write_uint64 t i =
+    writable t;
+    ensure_space t 8;
+    unsafe_set_64_le t.buffer t.write_pos i;
+    t.write_pos <- t.write_pos + 8
+
+  let write_float t f =
+    writable t;
+    ensure_space t 4;
+    unsafe_set_32_le t.buffer t.write_pos (Int32.bits_of_float f);
+    t.write_pos <- t.write_pos + 4
+
+  let write_double t d =
+    writable t;
+    ensure_space t 8;
+    unsafe_set_64_le t.buffer t.write_pos (Int64.bits_of_float d);
+    t.write_pos <- t.write_pos + 8
 end
 
 let close t =

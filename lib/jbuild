@@ -4,4 +4,4 @@
  ((name faraday)
   (public_name faraday)
   (wrapped false)
-  (libraries (ocplib-endian ocplib-endian.bigstring))))
+  (libraries (bigarray))))
