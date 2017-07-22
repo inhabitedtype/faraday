@@ -1,9 +1,12 @@
-.*.sw[po]
+.*.sw[a-z]
+*~
 _build/
 _tests/
 lib_test/tests_
+setup.log
+setup.data
 *.native
 *.byte
 *.docdir
-.merlin
 *.install
+.merlin
