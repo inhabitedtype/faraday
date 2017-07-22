@@ -1,0 +1,7 @@
+(jbuild_version 1)
+
+(library
+ ((name faraday_async)
+  (public_name faraday-async)
+  (wrapped false)
+  (libraries (faraday async))))

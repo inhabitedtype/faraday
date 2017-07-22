@@ -1,9 +1,24 @@
 language: c
 sudo: required
-install: wget https://raw.githubusercontent.com/ocaml/ocaml-ci-scripts/master/.travis-opam.sh
-script: bash -ex .travis-opam.sh
+language: c
+sudo: false
+services:
+  - docker
+install: wget https://raw.githubusercontent.com/ocaml/ocaml-travisci-skeleton/master/.travis-docker.sh
+script: bash -ex ./.travis-docker.sh
 env:
-  - OCAML_VERSION=4.02
-  - OCAML_VERSION=4.03
-os:
-  - linux
+  global:
+  - PINS="faraday-async:. faraday:. faraday-lwt:. faraday-lwt-unix:."
+  matrix:
+  - PACKAGE="faraday" DISTRO="ubuntu-16.04" OCAML_VERSION="4.04.2"
+  - PACKAGE="faraday-async" DISTRO="ubuntu-16.04" OCAML_VERSION="4.04.2"
+  - PACKAGE="faraday-lwt" DISTRO="ubuntu-16.04" OCAML_VERSION="4.04.2"
+  - PACKAGE="faraday-lwt-unix" DISTRO="ubuntu-16.04" OCAML_VERSION="4.04.2"
+  - PACKAGE="faraday" DISTRO="alpine-3.5" OCAML_VERSION="4.03.0"
+  - PACKAGE="faraday-async" DISTRO="alpine-3.5" OCAML_VERSION="4.03.0"
+  - PACKAGE="faraday-lwt" DISTRO="alpine-3.5" OCAML_VERSION="4.03.0"
+  - PACKAGE="faraday-lwt-unix" DISTRO="alpine-3.5" OCAML_VERSION="4.03.0"
+  - PACKAGE="faraday" DISTRO="debian-unstable" OCAML_VERSION="4.03.0"
+  - PACKAGE="faraday-async" DISTRO="debian-unstable" OCAML_VERSION="4.03.0"
+  - PACKAGE="faraday-lwt" DISTRO="debian-unstable" OCAML_VERSION="4.03.0"
+  - PACKAGE="faraday-lwt-unix" DISTRO="debian-unstable" OCAML_VERSION="4.03.0"
