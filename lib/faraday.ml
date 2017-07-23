@@ -31,18 +31,17 @@
     POSSIBILITY OF SUCH DAMAGE.
   ----------------------------------------------------------------------------*)
 
-type bigstring =
-  (char, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Array1.t
 
-type buffer =
-  [ `String    of string
-  | `Bytes     of Bytes.t
-  | `Bigstring of bigstring ]
+module BA = Bigarray.Array1
+
+type bigstring =
+  (char, Bigarray.int8_unsigned_elt, Bigarray.c_layout) BA.t
+
 
 type 'a iovec =
   { buffer : 'a
-  ; off : int
-  ; len : int }
+  ; off    : int
+  ; len    : int }
 
 module Deque(T:sig type t val sentinel : t end) : sig
   type elem = T.t
@@ -152,9 +151,13 @@ module IOVec = struct
 end
 
 module Buffers = Deque(struct
-  type t = buffer iovec
+  type t = bigstring iovec
   let sentinel =
-    { buffer = `String "\222\173\190\239"; off = 0; len = 4 }
+    let deadbeef = "\222\173\190\239" in
+    let len      = String.length deadbeef in
+    let buffer = Bigarray.(Array1.create char c_layout len) in
+    String.iteri (BA.unsafe_set buffer) deadbeef;
+    { buffer; off = 0; len }
 end)
 module Flushes = Deque(struct
   type t = int * (unit -> unit)
@@ -174,7 +177,7 @@ type t =
   }
 
 type operation = [
-  | `Writev of buffer iovec list
+  | `Writev of bigstring iovec list
   | `Yield
   | `Close
   ]
@@ -205,7 +208,7 @@ let flush_buffer t =
   let len = t.write_pos - t.scheduled_pos in
   if len > 0 then begin
     let off = t.scheduled_pos in
-    schedule_iovec t ~off ~len (`Bigstring t.buffer);
+    schedule_iovec t ~off ~len t.buffer;
     t.scheduled_pos <- t.write_pos
   end
 
@@ -215,54 +218,39 @@ let flush t f =
   else Flushes.enqueue (t.bytes_received, f) t.flushed
 
 let free_bytes_in_buffer t =
-  let buf_len = Bigarray.Array1.dim t.buffer in
+  let buf_len = BA.dim t.buffer in
   buf_len - t.write_pos
 
 let bigarray_to_string ~off ~len src =
   String.init (len - off) (fun i ->
-    Bigarray.Array1.unsafe_get src (off + i))
+    BA.unsafe_get src (off + i))
 
 let bigarray_blit src src_off dst dst_off len =
-  Bigarray.Array1.(blit (sub src src_off len) (sub dst dst_off len))
+  BA.(blit (sub src src_off len) (sub dst dst_off len))
 
 let bigarray_blit_from_string src src_off dst dst_off len =
   (* XXX(seliopou): Use Cstruct to turn this into a [memcpy]. *)
   for i = 0 to len - 1 do
-    Bigarray.Array1.unsafe_set dst
+    BA.unsafe_set dst
       (dst_off + i) (String.unsafe_get src (src_off + i))
   done
 
 let bigarray_blit_from_bytes src src_off dst dst_off len =
   (* XXX(seliopou): Use Cstruct to turn this into a [memcpy]. *)
   for i = 0 to len - 1 do
-    Bigarray.Array1.unsafe_set dst
+    BA.unsafe_set dst
       (dst_off + i) (Bytes.unsafe_get src (src_off + i))
   done
 
-let schedule_gen t ~length ~to_buffer ?(off=0) ?len a =
+let schedule_bigstring t ?(off=0) ?len a =
   writable t;
   flush_buffer t;
   let len =
     match len with
-    | None     -> length a - off
+    | None     -> BA.dim a - off
     | Some len -> len
   in
-  if len > 0 then schedule_iovec t ~off ~len (to_buffer a)
-
-let schedule_string =
-  let to_buffer a = `String a in
-  let length      = String.length in
-  fun t ?off ?len a -> schedule_gen t ~length ~to_buffer ?off ?len a
-
-let schedule_bytes =
-  let to_buffer a = `Bytes a in
-  let length      = Bytes.length in
-  fun t ?off ?len a -> schedule_gen t ~length ~to_buffer ?off ?len a
-
-let schedule_bigstring =
-  let to_buffer a = `Bigstring a in
-  let length      = Bigarray.Array1.dim in
-  fun t ?off ?len a -> schedule_gen t ~length ~to_buffer ?off ?len a
+  if len > 0 then schedule_iovec t ~off ~len a
 
 let ensure_space t len =
   if free_bytes_in_buffer t < len then begin
@@ -295,27 +283,21 @@ let write_bytes =
   fun t ?off ?len a -> write_gen t ~length ~blit ?off ?len a
 
 let write_bigstring =
-  let length = Bigarray.Array1.dim in
+  let length = BA.dim in
   let blit   = bigarray_blit in
   fun t ?off ?len a -> write_gen t ~length ~blit ?off ?len a
 
-let write_char =
-  let length a = assert false in
-  let blit src src_off dst dst_off len =
-    assert (src_off = 0);
-    assert (len = 1);
-    EndianBigstring.BigEndian_unsafe.set_char dst dst_off src
-  in
-  fun t a -> write_gen t ~length ~blit ~off:0 ~len:1 a
+let write_char t c =
+  writable t;
+  ensure_space t 1;
+  BA.unsafe_set t.buffer t.write_pos c;
+  t.write_pos <- t.write_pos + 1
 
-let write_uint8 =
-  let length a = assert false in
-  let blit src src_off dst dst_off len =
-    assert (src_off = 0);
-    assert (len = 1);
-    EndianBigstring.BigEndian_unsafe.set_int8 dst dst_off src
-  in
-  fun t a -> write_gen t ~length ~blit ~off:0 ~len:1 a
+let write_uint8 t b =
+  writable t;
+  ensure_space t 1;
+  BA.unsafe_set t.buffer t.write_pos (Char.unsafe_chr b);
+  t.write_pos <- t.write_pos + 1
 
 module type EndianBigstringSig = EndianBigstring.EndianBigstringSig
 module type EndianBytesSig = EndianBytes.EndianBytesSig
@@ -466,15 +448,9 @@ let serialize_to_string t =
     let bytes = Bytes.create len in
     let pos = ref 0 in
     List.iter (function
-      | { buffer = `String buf; off; len } ->
-        Bytes.blit_string buf off bytes !pos len;
-        pos := !pos + len
-      | { buffer = `Bytes  buf; off; len } ->
-        Bytes.blit buf off bytes !pos len;
-        pos := !pos + len
-      | { buffer = `Bigstring buf; off; len } ->
+      | { buffer; off; len } ->
         for i = off to len - 1 do
-          Bytes.unsafe_set bytes (!pos + i) (Bigarray.Array1.unsafe_get buf i)
+          Bytes.unsafe_set bytes (!pos + i) (BA.unsafe_get buffer i)
         done;
         pos := !pos + len)
     iovecs;

@@ -32,33 +32,6 @@ let serialize t ~yield ~writev =
       shutdown ();
       raise exn
 
-let take_group iovecs =
-  let to_group = function
-    | { Faraday.buffer = `String buffer; off; len } ->
-      `String [{ Faraday.buffer; off; len }]
-    | { Faraday.buffer = `Bytes  buffer; off; len } ->
-      `String [{ Faraday.buffer = bytes_unsafe_to_string buffer; off; len }]
-    | { Faraday.buffer = `Bigstring buffer; off; len } ->
-      `Bigstring [{ Faraday.buffer; off; len }]
-  in
-  let rec loop group iovecs =
-    match iovecs with
-    | [] -> (group, [])
-    | iovec::iovecs ->
-      begin match to_group iovec, group with
-      | `String item   , `String group ->
-        loop (`String (item @ group)) iovecs
-      | `Bigstring item, `Bigstring group ->
-        loop (`Bigstring (item @ group)) iovecs
-      | item, _ -> group, (iovec::iovecs)
-      end
-  in
-  match iovecs with
-  | [] -> None
-  | iovec::iovecs ->
-    let group, rest = loop (to_group iovec) iovecs in
-    Some(group, rest)
-
 let writev_of_fd fd =
   let badfd =
     failwithf "writev_of_fd got bad fd: %s" (Fd.to_string fd)
@@ -82,33 +55,16 @@ let writev_of_fd fd =
       raise exn
   in
   fun iovecs ->
-    match take_group iovecs with
-    | None -> return (`Ok 0)
-    | Some(`String group, _) ->
-      let iovecs = Array.of_list_rev_map group ~f:(fun iovec ->
-        let { Faraday.buffer; off = pos; len } = iovec in
-        Unix.IOVec.of_string ~pos ~len buffer)
-      in
-      if Fd.supports_nonblock fd then
-        finish
-          (Fd.syscall fd ~nonblocking:true
-            (fun file_descr ->
-              Unix.writev_assume_fd_is_nonblocking file_descr iovecs))
-      else
-        Fd.syscall_in_thread fd ~name:"writev"
-          (fun file_descr -> Unix.writev file_descr iovecs)
-        >>= finish
-    | Some(`Bigstring group, _) ->
-      let iovecs = Array.of_list_rev_map group ~f:(fun iovec ->
-        let { Faraday.buffer; off = pos; len } = iovec in
-        Unix.IOVec.of_bigstring ~pos ~len buffer)
-      in
-      if Fd.supports_nonblock fd then
-        finish
-          (Fd.syscall fd ~nonblocking:true
-            (fun file_descr ->
-              Bigstring.writev_assume_fd_is_nonblocking file_descr iovecs))
-      else
-        Fd.syscall_in_thread fd ~name:"writev"
-          (fun file_descr -> Bigstring.writev file_descr iovecs)
-        >>= finish
+    let iovecs = Array.of_list_map iovecs ~f:(fun iovec ->
+      let { Faraday.buffer; off = pos; len } = iovec in
+      Unix.IOVec.of_bigstring ~pos ~len buffer)
+    in
+    if Fd.supports_nonblock fd then
+      finish
+        (Fd.syscall fd ~nonblocking:true
+          (fun file_descr ->
+            Bigstring.writev_assume_fd_is_nonblocking file_descr iovecs))
+    else
+      Fd.syscall_in_thread fd ~name:"writev"
+        (fun file_descr -> Bigstring.writev file_descr iovecs)
+      >>= finish

@@ -20,8 +20,6 @@ let check ?(buf_size=0x100) ~iovecs ~msg ops result =
     | `Write_bytes     s -> write_bytes     t (Bytes.unsafe_of_string s)
     | `Write_bigstring s -> write_bigstring t (bigstring_of_string s)
     | `Write_char      c -> write_char      t c
-    | `Schedule_string s -> schedule_string t s
-    | `Schedule_bytes  s -> schedule_bytes  t (Bytes.unsafe_of_string s)
     | `Schedule_bigstring s -> schedule_bigstring t (bigstring_of_string s)
     | `Yield -> yield t)
   ops;
@@ -40,8 +38,6 @@ let empty =
       check ~iovecs:0 ~msg:"bigstring" [`Write_bigstring ""] ""
   end
   ; "schedule", `Quick, begin fun () ->
-      check ~iovecs:0 ~msg:"string"    [`Schedule_string    ""] "";
-      check ~iovecs:0 ~msg:"bytes"     [`Schedule_bytes     ""] "";
       check ~iovecs:0 ~msg:"bigstring" [`Schedule_bigstring ""] ""
   end ]
 
@@ -70,8 +66,6 @@ let write_tiny_buf =
 
 let schedule =
   [ "single", `Quick, begin fun () ->
-      check ~iovecs:1 ~msg:"string"    [`Schedule_string    "test"] "test";
-      check ~iovecs:1 ~msg:"bytes"     [`Schedule_bytes     "test"] "test";
       check ~iovecs:1 ~msg:"bigstring" [`Schedule_bigstring "test"] "test"
   end ]
 
@@ -85,24 +79,24 @@ let interleaved =
       check ~iovecs:2 ~msg:(Printf.sprintf "write_then_schedule: %d" i) ops "test")
     (cross
       [`Write_string "te"; `Write_bytes "te"; `Write_bigstring "te"]
-      [`Schedule_string "st"; `Schedule_bytes "st"; `Schedule_bigstring "st"]);
+      [`Schedule_bigstring "st"]);
     List.iteri (fun i ops ->
       check ~iovecs:2 ~msg:"write_then_schedule: char" ops "test")
     (cross
-      [`Write_char 't']
-      [`Schedule_string "est"; `Schedule_bytes "est"; `Schedule_bigstring "est"])
+      [`Write_char 't'; `Write_string "t"; `Write_bytes "t"]
+      [`Schedule_bigstring "est"])
   end
   ; "schedule_then_write", `Quick, begin fun () ->
     List.iteri (fun i ops ->
       check ~iovecs:2 ~msg:(Printf.sprintf "schedule_then_write: %d" i) ops "stte")
     (cross
-      [`Schedule_string "st"; `Schedule_bytes "st"; `Schedule_bigstring "st"]
+      [`Schedule_bigstring "st"]
       [`Write_string "te"; `Write_bytes "te"; `Write_bigstring "te"]);
     List.iteri (fun i ops ->
       check ~iovecs:2 ~msg:"schedule_then_write: char" ops "estt")
     (cross
-      [`Schedule_string "est"; `Schedule_bytes "est"; `Schedule_bigstring "est"]
-      [`Write_char 't'])
+      [`Schedule_bigstring "est"]
+      [`Write_char 't'; `Write_bytes "t"; `Write_string "t"])
   end ]
 
 let () =

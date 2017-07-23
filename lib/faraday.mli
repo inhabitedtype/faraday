@@ -174,17 +174,6 @@ end
 
 (** {2 Unbuffered Writes} *)
 
-val schedule_string : t -> ?off:int -> ?len:int -> string -> unit
-(** [schedule_string t ?off ?len str] schedules [str] to be written the next
-    time the serializer surfaces writes to the user. [str] is not copied in
-    this process. *)
-
-val schedule_bytes : t -> ?off:int -> ?len:int -> Bytes.t -> unit
-(** [schedule_bytes t ?off ?len bytes] schedules [bytes] to be written
-    the next time the serializer surfaces writes to the user. [bytes] is not
-    copied in this process, so [bytes] should only be modified after [t] has
-    been {!flush}ed. *)
-
 val schedule_bigstring : t -> ?off:int -> ?len:int -> bigstring -> unit
 (** [schedule_bigstring t ?free ?off ?len bigstring] schedules [bigstring] to
     be written the next time the serializer surfaces writes to the user.
@@ -245,19 +234,14 @@ val pending_bytes : t -> int
 
 (** {2 Running} *)
 
-type buffer =
-  [ `String    of string
-  | `Bytes     of Bytes.t
-  | `Bigstring of bigstring ]
-
 type 'a iovec =
   { buffer : 'a
-  ; off : int
-  ; len : int }
+  ; off    : int
+  ; len    : int }
 (** A view into {!iovec.buffer} starting at {!iovec.off} and with length {!iovec.len}. *)
 
 type operation = [
-  | `Writev of buffer iovec list
+  | `Writev of bigstring iovec list
     (** Write the {iovec}s, reporting the actual number of bytes written by
         calling {shift}. Failure to do so will result in the same bytes being
         surfaced in a [`Writev] operation multiple times. *)
@@ -276,7 +260,7 @@ val operation : t -> operation
     function. See the documentation for the {!type:operation} type for details
     on how callers should handle these operations. *)
 
-val serialize : t -> (buffer iovec list -> [`Ok of int | `Closed]) -> [`Yield | `Close]
+val serialize : t -> (bigstring iovec list -> [`Ok of int | `Closed]) -> [`Yield | `Close]
 (** [serialize t writev] sufaces the next operation of [t] to the caller,
     handling a [`Writev] operation with [writev] function and performing an
     additional bookkeeping on the caller's behalf. In the event that [writev]
