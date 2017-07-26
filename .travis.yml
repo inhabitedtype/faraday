@@ -6,7 +6,7 @@ install: wget https://raw.githubusercontent.com/ocaml/ocaml-travisci-skeleton/ma
 script: bash -ex ./.travis-docker.sh
 env:
   global:
-  - PINS="faraday-async:. faraday:. faraday-lwt:. faraday-lwt-unix:."
+  - PINS="faraday-async.dev:. faraday.dev:. faraday-lwt.dev:. faraday-lwt-unix.dev:."
   matrix:
   - PACKAGE="faraday" DISTRO="ubuntu-16.04" OCAML_VERSION="4.04.2"
   - PACKAGE="faraday-async" DISTRO="ubuntu-16.04" OCAML_VERSION="4.04.2"
