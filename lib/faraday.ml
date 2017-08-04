@@ -205,8 +205,9 @@ let flush_buffer t =
   let len = t.write_pos - t.scheduled_pos in
   if len > 0 then begin
     let off = t.scheduled_pos in
-    t.scheduled_pos <- t.write_pos;
-    schedule_iovec t ~off ~len (`Bigstring t.buffer)
+    schedule_iovec t ~off ~len (`Bigstring t.buffer);
+    t.write_pos <- 0;
+    t.scheduled_pos <- 0
   end
 
 let flush t f =
@@ -228,15 +229,15 @@ let bigarray_blit src src_off dst dst_off len =
 let bigarray_blit_from_string src src_off dst dst_off len =
   (* XXX(seliopou): Use Cstruct to turn this into a [memcpy]. *)
   for i = 0 to len - 1 do
-    Bigarray.Array1.unsafe_set dst
-      (dst_off + i) (String.unsafe_get src (src_off + i))
+    Bigarray.Array1.set dst
+      (dst_off + i) (String.get src (src_off + i))
   done
 
 let bigarray_blit_from_bytes src src_off dst dst_off len =
   (* XXX(seliopou): Use Cstruct to turn this into a [memcpy]. *)
   for i = 0 to len - 1 do
-    Bigarray.Array1.unsafe_set dst
-      (dst_off + i) (Bytes.unsafe_get src (src_off + i))
+    Bigarray.Array1.set dst
+      (dst_off + i) (Bytes.get src (src_off + i))
   done
 
 let schedule_gen t ~length ~to_buffer ?(off=0) ?len a =
@@ -277,9 +278,14 @@ let write_gen t ~length ~blit ?(off=0) ?len a =
     | None     -> length a - off
     | Some len -> len
   in
-  ensure_space t len;
-  blit a off t.buffer t.write_pos len;
-  t.write_pos <- t.write_pos + len
+  let written = ref 0 in
+  while !written < len do
+    ensure_space t (len - !written);
+    let bytes_to_write = min (free_bytes_in_buffer t) (len - !written) in
+    blit a (off + !written) t.buffer t.write_pos bytes_to_write;
+    written := !written + bytes_to_write;
+    t.write_pos <- t.write_pos + bytes_to_write
+  done
 
 let write_string =
   let length   = String.length in
