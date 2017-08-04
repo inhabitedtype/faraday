@@ -88,7 +88,7 @@ end = struct
       end else begin
         let old  = t.elements in
         let new_ = Array.(make (2 * length old) sentinel) in
-        Array.blit old t.front t.elements 0 len;
+        Array.blit old t.front new_ 0 len;
         t.elements <- new_
       end;
       t.front <- 0;
