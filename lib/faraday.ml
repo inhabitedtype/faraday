@@ -88,7 +88,7 @@ end = struct
       end else begin
         let old  = t.elements in
         let new_ = Array.(make (2 * length old) sentinel) in
-        Array.blit old t.front t.elements 0 len;
+        Array.blit old t.front new_ 0 len;
         t.elements <- new_
       end;
       t.front <- 0;
@@ -205,8 +205,9 @@ let flush_buffer t =
   let len = t.write_pos - t.scheduled_pos in
   if len > 0 then begin
     let off = t.scheduled_pos in
-    t.scheduled_pos <- t.write_pos;
-    schedule_iovec t ~off ~len (`Bigstring t.buffer)
+    schedule_iovec t ~off ~len (`Bigstring t.buffer);
+    t.write_pos <- 0;
+    t.scheduled_pos <- 0
   end
 
 let flush t f =
@@ -228,15 +229,15 @@ let bigarray_blit src src_off dst dst_off len =
 let bigarray_blit_from_string src src_off dst dst_off len =
   (* XXX(seliopou): Use Cstruct to turn this into a [memcpy]. *)
   for i = 0 to len - 1 do
-    Bigarray.Array1.unsafe_set dst
-      (dst_off + i) (String.unsafe_get src (src_off + i))
+    Bigarray.Array1.set dst
+      (dst_off + i) (String.get src (src_off + i))
   done
 
 let bigarray_blit_from_bytes src src_off dst dst_off len =
   (* XXX(seliopou): Use Cstruct to turn this into a [memcpy]. *)
   for i = 0 to len - 1 do
-    Bigarray.Array1.unsafe_set dst
-      (dst_off + i) (Bytes.unsafe_get src (src_off + i))
+    Bigarray.Array1.set dst
+      (dst_off + i) (Bytes.get src (src_off + i))
   done
 
 let schedule_gen t ~length ~to_buffer ?(off=0) ?len a =
@@ -265,10 +266,14 @@ let schedule_bigstring =
   fun t ?off ?len a -> schedule_gen t ~length ~to_buffer ?off ?len a
 
 let ensure_space t len =
-  if free_bytes_in_buffer t < len then begin
+  if free_bytes_in_buffer t < len then (
     flush_buffer t;
-    t.buffer <- Bigarray.(Array1.create char c_layout (Array1.dim t.buffer))
-  end
+    t.buffer <- Bigarray.(Array1.create char c_layout (Array1.dim t.buffer));
+    `Not_enough_space
+  )
+  else (
+    `Go_ahead
+  )
 
 let write_gen t ~length ~blit ?(off=0) ?len a =
   writable t;
@@ -277,9 +282,14 @@ let write_gen t ~length ~blit ?(off=0) ?len a =
     | None     -> length a - off
     | Some len -> len
   in
-  ensure_space t len;
-  blit a off t.buffer t.write_pos len;
-  t.write_pos <- t.write_pos + len
+  match ensure_space t len with
+  | `Not_enough_space ->
+    let buffer = Bigarray.(Array1.create char c_layout len) in
+    blit a off buffer 0 len;
+    schedule_iovec t ~len (`Bigstring buffer)
+  | `Go_ahead ->
+    blit a off t.buffer t.write_pos len;
+    t.write_pos <- t.write_pos + len
 
 let write_string =
   let length   = String.length in
