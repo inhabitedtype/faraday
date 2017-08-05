@@ -229,15 +229,15 @@ let bigarray_blit src src_off dst dst_off len =
 let bigarray_blit_from_string src src_off dst dst_off len =
   (* XXX(seliopou): Use Cstruct to turn this into a [memcpy]. *)
   for i = 0 to len - 1 do
-    Bigarray.Array1.set dst
-      (dst_off + i) (String.get src (src_off + i))
+    Bigarray.Array1.unsafe_set dst
+      (dst_off + i) (String.unsafe_get src (src_off + i))
   done
 
 let bigarray_blit_from_bytes src src_off dst dst_off len =
   (* XXX(seliopou): Use Cstruct to turn this into a [memcpy]. *)
   for i = 0 to len - 1 do
-    Bigarray.Array1.set dst
-      (dst_off + i) (Bytes.get src (src_off + i))
+    Bigarray.Array1.unsafe_set dst
+      (dst_off + i) (Bytes.unsafe_get src (src_off + i))
   done
 
 let schedule_gen t ~length ~to_buffer ?(off=0) ?len a =
