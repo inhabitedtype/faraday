@@ -206,6 +206,7 @@ let flush_buffer t =
   if len > 0 then begin
     let off = t.scheduled_pos in
     schedule_iovec t ~off ~len (`Bigstring t.buffer);
+    t.buffer <- Bigarray.(Array1.create char c_layout (Array1.dim t.buffer));
     t.write_pos <- 0;
     t.scheduled_pos <- 0
   end
@@ -268,7 +269,6 @@ let schedule_bigstring =
 let ensure_space t len =
   if free_bytes_in_buffer t < len then (
     flush_buffer t;
-    t.buffer <- Bigarray.(Array1.create char c_layout (Array1.dim t.buffer));
     `Not_enough_space
   )
   else (
