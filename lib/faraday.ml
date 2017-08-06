@@ -371,7 +371,7 @@ module Make_endian(EBigstring:EndianBigstringSig)(EBytes:EndianBytesSig) = struc
     let blit src src_off dst dst_off len =
       assert (src_off = 0);
       assert (len = 8);
-      EBigstring.set_float dst dst_off src
+      EBigstring.set_double dst dst_off src
     in
     fun t a -> write_gen t ~length ~blit ~off:0 ~len:8 a
 end
