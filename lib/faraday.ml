@@ -206,9 +206,7 @@ let flush_buffer t =
   if len > 0 then begin
     let off = t.scheduled_pos in
     schedule_iovec t ~off ~len (`Bigstring t.buffer);
-    t.buffer <- Bigarray.(Array1.create char c_layout (Array1.dim t.buffer));
-    t.write_pos <- 0;
-    t.scheduled_pos <- 0
+    t.scheduled_pos <- t.write_pos
   end
 
 let flush t f =
@@ -267,13 +265,13 @@ let schedule_bigstring =
   fun t ?off ?len a -> schedule_gen t ~length ~to_buffer ?off ?len a
 
 let ensure_space t len =
-  if free_bytes_in_buffer t < len then (
+  if free_bytes_in_buffer t < len then begin
     flush_buffer t;
-    `Not_enough_space
-  )
-  else (
-    `Go_ahead
-  )
+    t.buffer <-
+      Bigarray.(Array1.create char c_layout (max (Array1.dim t.buffer) len));
+    t.write_pos <- 0;
+    t.scheduled_pos <- 0
+  end
 
 let write_gen t ~length ~blit ?(off=0) ?len a =
   writable t;
@@ -282,14 +280,9 @@ let write_gen t ~length ~blit ?(off=0) ?len a =
     | None     -> length a - off
     | Some len -> len
   in
-  match ensure_space t len with
-  | `Not_enough_space ->
-    let buffer = Bigarray.(Array1.create char c_layout len) in
-    blit a off buffer 0 len;
-    schedule_iovec t ~len (`Bigstring buffer)
-  | `Go_ahead ->
-    blit a off t.buffer t.write_pos len;
-    t.write_pos <- t.write_pos + len
+  ensure_space t len;
+  blit a off t.buffer t.write_pos len;
+  t.write_pos <- t.write_pos + len
 
 let write_string =
   let length   = String.length in
