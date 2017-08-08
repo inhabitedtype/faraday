@@ -414,8 +414,10 @@ let rec shift_buffers t written =
       Buffers.enqueue_front (IOVec.shift iovec written) t.scheduled
   with Not_found ->
     assert (written = 0);
-    t.scheduled_pos <- 0;
-    t.write_pos <- 0
+    if t.scheduled_pos = t.write_pos then begin
+      t.scheduled_pos <- 0;
+      t.write_pos <- 0
+    end
 
 let rec shift_flushes t =
   try
