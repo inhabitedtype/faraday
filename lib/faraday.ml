@@ -422,7 +422,21 @@ let rec shift_buffers t written =
 let rec shift_flushes t =
   try
     let (threshold, f) as flush = Flushes.dequeue_exn t.flushed in
-    if t.bytes_written >= threshold then begin f (); shift_flushes t end
+    (* XXX(dinosaure): [t.bytes_written] is an unsigned integer (same for
+       [t.bytes_received] and [threshold]). However, if [t.bytes_written] will
+       be upper than [max_int], it becomes negative. For any operation (like
+       [sub]) is not a problem but a comparison could be:
+
+       > bytes_written = max_int - 5
+       > Flushes.[ (max_int - 4, f); ... ]
+       > shift_buffers
+       > bytes_written += 10
+       > bytes_written >= threshold = false (but we expect [true])
+
+       This new kind of comparison takes care about semantic between unsigned
+       integers. *)
+    if compare (t.bytes_written - min_int) (threshold - min_int) >= 0
+    then begin f (); shift_flushes t end
     else Flushes.enqueue_front flush t.flushed
   with Not_found ->
     ()
