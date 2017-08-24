@@ -3,5 +3,4 @@
 (library
  ((name faraday)
   (public_name faraday)
-  (wrapped false)
   (libraries (bigarray))))

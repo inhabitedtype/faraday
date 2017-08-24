@@ -32,11 +32,7 @@
   ----------------------------------------------------------------------------*)
 
 
-module BA = Bigarray.Array1
-
-type bigstring =
-  (char, Bigarray.int8_unsigned_elt, Bigarray.c_layout) BA.t
-
+type bigstring = Bigstring.t
 
 type 'a iovec =
   { buffer : 'a
@@ -155,8 +151,8 @@ module Buffers = Deque(struct
   let sentinel =
     let deadbeef = "\222\173\190\239" in
     let len      = String.length deadbeef in
-    let buffer = Bigarray.(Array1.create char c_layout len) in
-    String.iteri (BA.unsafe_set buffer) deadbeef;
+    let buffer   = Bigstring.create len in
+    String.iteri (Bigstring.unsafe_set buffer) deadbeef;
     { buffer; off = 0; len }
 end)
 module Flushes = Deque(struct
@@ -194,7 +190,7 @@ let of_bigstring buffer =
   ; yield           = false }
 
 let create size =
-  of_bigstring (Bigarray.(Array1.create char c_layout size))
+  of_bigstring (Bigstring.create size)
 
 let writable t =
   if t.closed then
@@ -218,36 +214,19 @@ let flush t f =
   else Flushes.enqueue (t.bytes_received, f) t.flushed
 
 let free_bytes_in_buffer t =
-  let buf_len = BA.dim t.buffer in
+  let buf_len = Bigstring.length t.buffer in
   buf_len - t.write_pos
 
 let bigarray_to_string ~off ~len src =
   String.init (len - off) (fun i ->
-    BA.unsafe_get src (off + i))
-
-let bigarray_blit src src_off dst dst_off len =
-  BA.(blit (sub src src_off len) (sub dst dst_off len))
-
-let bigarray_blit_from_string src src_off dst dst_off len =
-  (* XXX(seliopou): Use Cstruct to turn this into a [memcpy]. *)
-  for i = 0 to len - 1 do
-    BA.unsafe_set dst
-      (dst_off + i) (String.unsafe_get src (src_off + i))
-  done
-
-let bigarray_blit_from_bytes src src_off dst dst_off len =
-  (* XXX(seliopou): Use Cstruct to turn this into a [memcpy]. *)
-  for i = 0 to len - 1 do
-    BA.unsafe_set dst
-      (dst_off + i) (Bytes.unsafe_get src (src_off + i))
-  done
+    Bigstring.unsafe_get src (off + i))
 
 let schedule_bigstring t ?(off=0) ?len a =
   writable t;
   flush_buffer t;
   let len =
     match len with
-    | None     -> BA.dim a - off
+    | None     -> Bigstring.length a - off
     | Some len -> len
   in
   if len > 0 then schedule_iovec t ~off ~len a
@@ -255,8 +234,7 @@ let schedule_bigstring t ?(off=0) ?len a =
 let ensure_space t len =
   if free_bytes_in_buffer t < len then begin
     flush_buffer t;
-    t.buffer <-
-      Bigarray.(Array1.create char c_layout (max (Array1.dim t.buffer) len));
+    t.buffer <- Bigstring.create (max (Bigstring.length t.buffer) len);
     t.write_pos <- 0;
     t.scheduled_pos <- 0
   end
@@ -274,29 +252,29 @@ let write_gen t ~length ~blit ?(off=0) ?len a =
 
 let write_string =
   let length   = String.length in
-  let blit     = bigarray_blit_from_string in
+  let blit     = Bigstring.blit_from_string in
   fun t ?off ?len a -> write_gen t ~length ~blit ?off ?len a
 
 let write_bytes =
   let length = Bytes.length in
-  let blit   = bigarray_blit_from_bytes in
+  let blit   = Bigstring.blit_from_bytes in
   fun t ?off ?len a -> write_gen t ~length ~blit ?off ?len a
 
 let write_bigstring =
-  let length = BA.dim in
-  let blit   = bigarray_blit in
+  let length = Bigstring.length in
+  let blit   = Bigstring.blit in
   fun t ?off ?len a -> write_gen t ~length ~blit ?off ?len a
 
 let write_char t c =
   writable t;
   ensure_space t 1;
-  BA.unsafe_set t.buffer t.write_pos c;
+  Bigstring.unsafe_set t.buffer t.write_pos c;
   t.write_pos <- t.write_pos + 1
 
 let write_uint8 t b =
   writable t;
   ensure_space t 1;
-  Bigarray.Array1.unsafe_set t.buffer t.write_pos (Char.unsafe_chr b);
+  Bigstring.unsafe_set t.buffer t.write_pos (Char.unsafe_chr b);
   t.write_pos <- t.write_pos + 1
 
 external caml_bigstring_set_16u : bigstring -> int -> int -> unit = "%caml_bigstring_set16u"
@@ -490,7 +468,7 @@ let serialize_to_string t =
     List.iter (function
       | { buffer; off; len } ->
         for i = off to len - 1 do
-          Bytes.unsafe_set bytes (!pos + i) (BA.unsafe_get buffer i)
+          Bytes.unsafe_set bytes (!pos + i) (Bigstring.unsafe_get buffer i)
         done;
         pos := !pos + len)
     iovecs;
