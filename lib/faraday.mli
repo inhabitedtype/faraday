@@ -119,7 +119,7 @@ val write_uint8 : t -> int -> unit
 
 
 (** Big endian serializers *)
-module Be : sig
+module BE : sig
   val write_uint16 : t -> int -> unit
   (** [write_uint16 t n] copies the lower 16 bits of [n] into the serializer's
       internal buffer in big-endian byte order. *)
@@ -141,13 +141,13 @@ module Be : sig
       internal buffer in big-endian byte order. *)
 
   val write_double : t -> float -> unit
-  (** [write_float t n] copies [n] into the serializer's internal buffer in
+  (** [write_double t n] copies [n] into the serializer's internal buffer in
       big-endian byte order. *)
 end
 
 
 (** Little endian serializers *)
-module Le : sig
+module LE : sig
   val write_uint16 : t -> int -> unit
   (** [write_uint16 t n] copies the lower 16 bits of [n] into the
       serializer's internal buffer in little-endian byte order. *)
@@ -169,7 +169,7 @@ module Le : sig
       internal buffer in little-endian byte order. *)
 
   val write_double : t -> float -> unit
-  (** [write_float t n] copies [n] into the serializer's internal buffer in
+  (** [write_double t n] copies [n] into the serializer's internal buffer in
       little-endian byte order. *)
 end
 

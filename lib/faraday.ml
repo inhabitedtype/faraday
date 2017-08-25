@@ -333,7 +333,7 @@ let unsafe_set_64_be, unsafe_set_64_le =
   then Swap.caml_bigstring_set_64u, caml_bigstring_set_64u
   else caml_bigstring_set_64u     , Swap.caml_bigstring_set_64u
 
-module Be = struct
+module BE = struct
   let write_uint16 t i =
     writable t;
     ensure_space t 2;
@@ -372,7 +372,7 @@ module Be = struct
     t.write_pos <- t.write_pos + 8
 end
 
-module Le = struct
+module LE = struct
   let write_uint16 t i =
     writable t;
     ensure_space t 2;
