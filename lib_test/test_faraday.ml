@@ -16,6 +16,8 @@ let rec cross xs ys =
 let check ?(buf_size=0x100) ~iovecs ~msg ops result =
   let t = create buf_size in
   List.iter (function
+    | `Write_le        i -> LE.write_uint16 t i
+    | `Write_be        i -> BE.write_uint16 t i
     | `Write_string    s -> write_string    t s
     | `Write_bytes     s -> write_bytes     t (Bytes.unsafe_of_string s)
     | `Write_bigstring s -> write_bigstring t (bigstring_of_string s)
@@ -39,6 +41,12 @@ let empty =
   end
   ; "schedule", `Quick, begin fun () ->
       check ~iovecs:0 ~msg:"bigstring" [`Schedule_bigstring ""] ""
+  end ]
+
+let endian =
+  [ "endian", `Quick, begin fun () ->
+      check ~iovecs:1 ~msg:"uint16 le" [`Write_le 5] "\005\000";
+      check ~iovecs:1 ~msg:"uint16 be" [`Write_be 5] "\000\005"
   end ]
 
 let write =
@@ -102,6 +110,7 @@ let interleaved =
 let () =
   Alcotest.run "test suite"
     [ "empty output"              , empty
+    ; "endianness"                , endian
     ; "single write"              , write
     ; "writes (tiny buffer)"      , write_tiny_buf
     ; "single schedule"           , schedule
