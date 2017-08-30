@@ -296,17 +296,17 @@ module Swap = struct
     caml_bigstring_set_64u bs off (bswap_int64 i)
 end
 
-let unsafe_set_16_be, unsafe_set_16_le =
+let unsafe_set_16_le, unsafe_set_16_be =
   if Sys.big_endian
   then Swap.caml_bigstring_set_16u, caml_bigstring_set_16u
   else caml_bigstring_set_16u     , Swap.caml_bigstring_set_16u
 
-let unsafe_set_32_be, unsafe_set_32_le =
+let unsafe_set_32_le, unsafe_set_32_be =
   if Sys.big_endian
   then Swap.caml_bigstring_set_32u, caml_bigstring_set_32u
   else caml_bigstring_set_32u     , Swap.caml_bigstring_set_32u
 
-let unsafe_set_64_be, unsafe_set_64_le =
+let unsafe_set_64_le, unsafe_set_64_be =
   if Sys.big_endian
   then Swap.caml_bigstring_set_64u, caml_bigstring_set_64u
   else caml_bigstring_set_64u     , Swap.caml_bigstring_set_64u
