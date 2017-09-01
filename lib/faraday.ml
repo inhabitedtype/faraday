@@ -422,20 +422,22 @@ let rec shift_buffers t written =
 let rec shift_flushes t =
   try
     let (threshold, f) as flush = Flushes.dequeue_exn t.flushed in
-    (* XXX(dinosaure): [t.bytes_written] is an unsigned integer (same for
-       [t.bytes_received] and [threshold]). However, if [t.bytes_written] will
-       be upper than [max_int], it becomes negative. For any operation (like
-       [sub]) is not a problem but a comparison could be:
-
-       > bytes_written = max_int - 5
-       > Flushes.[ (max_int - 4, f); ... ]
-       > shift_buffers
-       > bytes_written += 10
-       > bytes_written >= threshold = false (but we expect [true])
-
-       This new kind of comparison takes care about semantic between unsigned
-       integers. *)
-    if compare (t.bytes_written - min_int) (threshold - min_int) >= 0
+    (* Edited notes from @dinosaure:
+     * 
+     * The quantities [t.bytes_written] and [threshold] are always going to be
+     * positive integers. Therefore, we can treat them as unsinged integers for
+     * the purposes of comparision. Doing so allows us to handle overflows in
+     * either quantity as long as they're both within one overflow of each other.
+     * We can accomplish this by subracting [min_int] from both quantities before
+     * comparision. This shift a quantity that has not overflowed into the
+     * negative integer range while shifting a quantity that has overflow into
+     * the positive integer range.
+     *
+     * This effectively restablishes the relative difference when an overflow
+     * has occurred, and otherwise just compares numbers that haven't
+     * overflowed as similarly, just shifted down a bit.
+     *)
+    if t.bytes_written - min_int >= threshold - min_int
     then begin f (); shift_flushes t end
     else Flushes.enqueue_front flush t.flushed
   with Not_found ->
