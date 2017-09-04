@@ -2,7 +2,7 @@
 
     This module is not part of Angstrom's public API to as not not cause
     confusion, usability issues, and linking errors related to naming conflicts
-    with other existing libraries. 
+    with other existing libraries.
 
     All of these operations skip bounds checks when possible. *)
 

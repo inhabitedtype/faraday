@@ -13,15 +13,15 @@ let unsafe_get = BA1.unsafe_get
 let unsafe_set = BA1.unsafe_set
 
 let blit src src_off dst dst_off len =
-	BA1.(blit (sub src src_off len) (sub dst dst_off len))
+  BA1.(blit (sub src src_off len) (sub dst dst_off len))
 
 let blit_from_string src src_off dst dst_off len =
-	for i = 0 to len - 1 do
-		BA1.unsafe_set dst (dst_off + i) (String.unsafe_get src (src_off + i))
-	done
+  for i = 0 to len - 1 do
+    BA1.unsafe_set dst (dst_off + i) (String.unsafe_get src (src_off + i))
+  done
 
 let blit_from_bytes src src_off dst dst_off len =
-	blit_from_string (Bytes.unsafe_to_string src) src_off dst dst_off len
+  blit_from_string (Bytes.unsafe_to_string src) src_off dst dst_off len
 
 let blit_to_bytes src src_off dst dst_off len =
   for i = 0 to len - 1 do
@@ -29,7 +29,7 @@ let blit_to_bytes src src_off dst dst_off len =
   done
 
 let sub t ~off ~len =
-	BA1.sub t off len
+  BA1.sub t off len
 
 let substring t ~off ~len =
   let b = Bytes.create len in
@@ -37,6 +37,6 @@ let substring t ~off ~len =
   Bytes.unsafe_to_string b
 
 let of_string ~off ~len s =
-	let b = create len in
-	blit_from_string s off b 0 len;
-	b
+  let b = create len in
+  blit_from_string s off b 0 len;
+  b
