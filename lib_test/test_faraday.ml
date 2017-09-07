@@ -8,12 +8,20 @@ let bigstring_of_string str =
   done;
   buf
 
+let string_of_bigstring b =
+  let module Bigstring = Faraday__Bigstring in
+  Bigstring.substring ~off:0 ~len:(Bigstring.length b) b
+
+let serialize_to_bigstring' t =
+  serialize_to_bigstring t
+  |> string_of_bigstring
+
 let rec cross xs ys =
   match xs with
   | [] -> []
   | x::xs' -> List.(map (fun y -> [x; y]) ys) @ (cross xs' ys)
 
-let check ?(buf_size=0x100) ~iovecs ~msg ops result =
+let check ?(buf_size=0x100) ?(serialize=serialize_to_string) ~iovecs ~msg ops result =
   let t = create buf_size in
   List.iter (function
     | `Write_le        i -> LE.write_uint16 t i
@@ -29,7 +37,7 @@ let check ?(buf_size=0x100) ~iovecs ~msg ops result =
     (match operation t with
     | `Writev iovecs  -> List.length iovecs
     | _               -> 0);
-  Alcotest.(check string) msg result (serialize_to_string t)
+  Alcotest.(check string) msg result (serialize t)
 
 let empty =
   [ "noop"       , `Quick, begin fun () -> check ~iovecs:0 ~msg:"noop"  []       "" end
@@ -77,31 +85,31 @@ let schedule =
       check ~iovecs:1 ~msg:"bigstring" [`Schedule_bigstring "test"] "test"
   end ]
 
-let interleaved =
+let interleaved serialize =
   (* XXX(seliopou): Replace with property-based testing. The property should
      really be: Given a string, for any partition of that string and for any
      assignment of writes and schedules on the partition, the output will be
      the same as the input. *)
   [ "write_then_schedule", `Quick, begin fun () ->
     List.iteri (fun i ops ->
-      check ~iovecs:2 ~msg:(Printf.sprintf "write_then_schedule: %d" i) ops "test")
+      check ~iovecs:2 ~serialize ~msg:(Printf.sprintf "write_then_schedule: %d" i) ops "test")
     (cross
       [`Write_string "te"; `Write_bytes "te"; `Write_bigstring "te"]
       [`Schedule_bigstring "st"]);
     List.iteri (fun i ops ->
-      check ~iovecs:2 ~msg:"write_then_schedule: char" ops "test")
+      check ~iovecs:2 ~serialize ~msg:"write_then_schedule: char" ops "test")
     (cross
       [`Write_char 't'; `Write_string "t"; `Write_bytes "t"]
       [`Schedule_bigstring "est"])
   end
   ; "schedule_then_write", `Quick, begin fun () ->
     List.iteri (fun i ops ->
-      check ~iovecs:2 ~msg:(Printf.sprintf "schedule_then_write: %d" i) ops "stte")
+      check ~iovecs:2 ~serialize ~msg:(Printf.sprintf "schedule_then_write: %d" i) ops "stte")
     (cross
       [`Schedule_bigstring "st"]
       [`Write_string "te"; `Write_bytes "te"; `Write_bigstring "te"]);
     List.iteri (fun i ops ->
-      check ~iovecs:2 ~msg:"schedule_then_write: char" ops "estt")
+      check ~iovecs:2 ~serialize ~msg:"schedule_then_write: char" ops "estt")
     (cross
       [`Schedule_bigstring "est"]
       [`Write_char 't'; `Write_bytes "t"; `Write_string "t"])
@@ -109,9 +117,10 @@ let interleaved =
 
 let () =
   Alcotest.run "test suite"
-    [ "empty output"              , empty
-    ; "endianness"                , endian
-    ; "single write"              , write
-    ; "writes (tiny buffer)"      , write_tiny_buf
-    ; "single schedule"           , schedule
-    ; "interleaved calls"         , interleaved ]
+    [ "empty output"                  , empty
+    ; "endianness"                    , endian
+    ; "single write"                  , write
+    ; "writes (tiny buffer)"          , write_tiny_buf
+    ; "single schedule"               , schedule
+    ; "interleaved calls (string)"    , interleaved serialize_to_string
+    ; "interleaved calls (bigstring)" , interleaved serialize_to_bigstring']

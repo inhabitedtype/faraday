@@ -494,6 +494,24 @@ let serialize_to_string t =
   | `Close -> ""
   | `Yield -> assert false
 
+let serialize_to_bigstring t =
+  close t;
+  match operation t with
+  | `Writev iovecs ->
+    let len = IOVec.lengthv iovecs in
+    let bs = Bigstring.create len in
+    let pos = ref 0 in
+    List.iter (function
+      | { buffer; off; len } ->
+        Bigstring.blit buffer off bs !pos len;
+        pos := !pos + len)
+    iovecs;
+    shift t len;
+    assert (operation t = `Close);
+    bs
+  | `Close -> Bigstring.create 0
+  | `Yield -> assert false
+
 let drain =
   let rec loop t acc =
     match operation t with

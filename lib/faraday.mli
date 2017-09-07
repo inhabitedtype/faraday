@@ -273,3 +273,8 @@ val serialize_to_string : t -> string
 (** [serialize_to_string t] runs [t], collecting the output into a string and
     returning it. [serialzie_to_string t] immediately closes [t] and ignores
     any calls to {!yield} on [t]. *)
+
+val serialize_to_bigstring : t -> bigstring
+(** [serialize_to_string t] runs [t], collecting the output into a bigstring
+    and returning it. [serialzie_to_bigstring t] immediately closes [t] and
+    ignores any calls to {!yield} on [t]. *)
