@@ -483,9 +483,7 @@ let serialize_to_string t =
     let pos = ref 0 in
     List.iter (function
       | { buffer; off; len } ->
-        for i = 0 to len - 1 do
-          Bytes.unsafe_set bytes (!pos + i) (Bigstring.unsafe_get buffer (off + i))
-        done;
+        Bigstring.blit_to_bytes buffer off bytes !pos len;
         pos := !pos + len)
     iovecs;
     shift t len;
