@@ -96,7 +96,7 @@ let interleaved serialize =
     (cross
       [`Write_string "te"; `Write_bytes "te"; `Write_bigstring "te"]
       [`Schedule_bigstring "st"]);
-    List.iteri (fun i ops ->
+    List.iter (fun ops ->
       check ~iovecs:2 ~serialize ~msg:"write_then_schedule: char" ops "test")
     (cross
       [`Write_char 't'; `Write_string "t"; `Write_bytes "t"]
@@ -108,7 +108,7 @@ let interleaved serialize =
     (cross
       [`Schedule_bigstring "st"]
       [`Write_string "te"; `Write_bytes "te"; `Write_bigstring "te"]);
-    List.iteri (fun i ops ->
+    List.iter (fun ops ->
       check ~iovecs:2 ~serialize ~msg:"schedule_then_write: char" ops "estt")
     (cross
       [`Schedule_bigstring "est"]

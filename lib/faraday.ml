@@ -44,15 +44,12 @@ module Deque(T:sig type t val sentinel : t end) : sig
 
   type t
 
-  val sentinel : elem
-
   val create : int -> t
 
   val is_empty : t -> bool
 
   val enqueue : elem -> t -> unit
   val dequeue_exn : t -> elem
-  val dequeue : t -> elem option
   val enqueue_front : elem -> t -> unit
 
   val map_to_list : t -> f:(elem -> 'b) -> 'b list
@@ -104,9 +101,6 @@ end = struct
       t.front <- t.front + 1;
       result
 
-  let dequeue t =
-    try Some (dequeue_exn t) with Not_found -> None
-
   let enqueue_front e t =
     (* This is in general not true for Deque data structures, but the usage
      * below ensures that there is always space to push an element back on the
@@ -125,8 +119,6 @@ end = struct
 end
 
 module IOVec = struct
-  type 'a t = 'a iovec
-
   let create buffer ~off ~len =
     { buffer; off; len }
 
@@ -216,10 +208,6 @@ let flush t f =
 let free_bytes_in_buffer t =
   let buf_len = Bigstring.length t.buffer in
   buf_len - t.write_pos
-
-let bigarray_to_string ~off ~len src =
-  String.init (len - off) (fun i ->
-    Bigstring.unsafe_get src (off + i))
 
 let schedule_bigstring t ?(off=0) ?len a =
   writable t;
@@ -407,7 +395,7 @@ let yield t =
 
 let rec shift_buffers t written =
   try
-    let { len } as iovec = Buffers.dequeue_exn t.scheduled in
+    let { len; _ } as iovec = Buffers.dequeue_exn t.scheduled in
     if len <= written then begin
       shift_buffers t (written - len)
     end else

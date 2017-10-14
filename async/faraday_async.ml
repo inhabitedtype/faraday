@@ -1,6 +1,3 @@
-type file_descr = Unix.file_descr
-let bytes_unsafe_to_string = Bytes.unsafe_to_string
-
 open Core
 open Async
 
