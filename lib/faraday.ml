@@ -265,76 +265,44 @@ let write_uint8 t b =
   Bigstring.unsafe_set t.buffer t.write_pos (Char.unsafe_chr b);
   t.write_pos <- t.write_pos + 1
 
-external caml_bigstring_set_16u : bigstring -> int -> int -> unit = "%caml_bigstring_set16u"
-external caml_bigstring_set_32u : bigstring -> int -> int32 -> unit = "%caml_bigstring_set32u"
-external caml_bigstring_set_64u : bigstring -> int -> int64 -> unit = "%caml_bigstring_set64u"
-
-module Swap = struct
-  external bswap16 : int -> int = "%bswap16"
-  external bswap_int32 : int32 -> int32 = "%bswap_int32"
-  external bswap_int64 : int64 -> int64 = "%bswap_int64"
-
-  let caml_bigstring_set_16u bs off i =
-    caml_bigstring_set_16u bs off (bswap16 i)
-
-  let caml_bigstring_set_32u bs off i =
-    caml_bigstring_set_32u bs off (bswap_int32 i)
-
-  let caml_bigstring_set_64u bs off i =
-    caml_bigstring_set_64u bs off (bswap_int64 i)
-end
-
-let unsafe_set_16_le, unsafe_set_16_be =
-  if Sys.big_endian
-  then Swap.caml_bigstring_set_16u, caml_bigstring_set_16u
-  else caml_bigstring_set_16u     , Swap.caml_bigstring_set_16u
-
-let unsafe_set_32_le, unsafe_set_32_be =
-  if Sys.big_endian
-  then Swap.caml_bigstring_set_32u, caml_bigstring_set_32u
-  else caml_bigstring_set_32u     , Swap.caml_bigstring_set_32u
-
-let unsafe_set_64_le, unsafe_set_64_be =
-  if Sys.big_endian
-  then Swap.caml_bigstring_set_64u, caml_bigstring_set_64u
-  else caml_bigstring_set_64u     , Swap.caml_bigstring_set_64u
-
 module BE = struct
   let write_uint16 t i =
     writable t;
     ensure_space t 2;
-    unsafe_set_16_be t.buffer t.write_pos i;
+    Bigstring.unsafe_set_16_be t.buffer ~off:t.write_pos i;
     t.write_pos <- t.write_pos + 2
 
   let write_uint32 t i =
     writable t;
     ensure_space t 4;
-    unsafe_set_32_be t.buffer t.write_pos i;
+    Bigstring.unsafe_set_32_be t.buffer ~off:t.write_pos i;
     t.write_pos <- t.write_pos + 4
 
   let write_uint48 t i =
     writable t;
     ensure_space t 6;
-    unsafe_set_32_be t.buffer t.write_pos       Int64.(to_int32 (shift_right_logical i 4));
-    unsafe_set_16_be t.buffer (t.write_pos + 2) Int64.(to_int i);
+    Bigstring.unsafe_set_32_be t.buffer ~off:t.write_pos
+      Int64.(to_int32 (shift_right_logical i 4));
+    Bigstring.unsafe_set_16_be t.buffer ~off:(t.write_pos + 2)
+      Int64.(to_int i);
     t.write_pos <- t.write_pos + 6
 
   let write_uint64 t i =
     writable t;
     ensure_space t 8;
-    unsafe_set_64_be t.buffer t.write_pos i;
+    Bigstring.unsafe_set_64_be t.buffer ~off:t.write_pos i;
     t.write_pos <- t.write_pos + 8
 
   let write_float t f =
     writable t;
     ensure_space t 4;
-    unsafe_set_32_be t.buffer t.write_pos (Int32.bits_of_float f);
+    Bigstring.unsafe_set_32_be t.buffer ~off:t.write_pos (Int32.bits_of_float f);
     t.write_pos <- t.write_pos + 4
 
   let write_double t d =
     writable t;
     ensure_space t 8;
-    unsafe_set_64_be t.buffer t.write_pos (Int64.bits_of_float d);
+    Bigstring.unsafe_set_64_be t.buffer t.write_pos (Int64.bits_of_float d);
     t.write_pos <- t.write_pos + 8
 end
 
@@ -342,38 +310,40 @@ module LE = struct
   let write_uint16 t i =
     writable t;
     ensure_space t 2;
-    unsafe_set_16_le t.buffer t.write_pos i;
+    Bigstring.unsafe_set_16_le t.buffer ~off:t.write_pos i;
     t.write_pos <- t.write_pos + 2
 
   let write_uint32 t i =
     writable t;
     ensure_space t 4;
-    unsafe_set_32_le t.buffer t.write_pos i;
+    Bigstring.unsafe_set_32_le t.buffer ~off:t.write_pos i;
     t.write_pos <- t.write_pos + 4
 
   let write_uint48 t i =
     writable t;
     ensure_space t 6;
-    unsafe_set_16_le t.buffer t.write_pos       Int64.(to_int i);
-    unsafe_set_32_le t.buffer (t.write_pos + 2) Int64.(to_int32 (shift_right_logical i 2));
+    Bigstring.unsafe_set_16_le t.buffer ~off:t.write_pos
+      Int64.(to_int i);
+    Bigstring.unsafe_set_32_le t.buffer ~off:(t.write_pos + 2)
+      Int64.(to_int32 (shift_right_logical i 2));
     t.write_pos <- t.write_pos + 6
 
   let write_uint64 t i =
     writable t;
     ensure_space t 8;
-    unsafe_set_64_le t.buffer t.write_pos i;
+    Bigstring.unsafe_set_64_le t.buffer ~off:t.write_pos i;
     t.write_pos <- t.write_pos + 8
 
   let write_float t f =
     writable t;
     ensure_space t 4;
-    unsafe_set_32_le t.buffer t.write_pos (Int32.bits_of_float f);
+    Bigstring.unsafe_set_32_le t.buffer ~off:t.write_pos (Int32.bits_of_float f);
     t.write_pos <- t.write_pos + 4
 
   let write_double t d =
     writable t;
     ensure_space t 8;
-    unsafe_set_64_le t.buffer t.write_pos (Int64.bits_of_float d);
+    Bigstring.unsafe_set_64_le t.buffer ~off:t.write_pos (Int64.bits_of_float d);
     t.write_pos <- t.write_pos + 8
 end
 
