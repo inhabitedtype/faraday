@@ -1,6 +1,8 @@
 (jbuild_version 1)
 
 (library
- ((name faraday)
+ ((name        faraday)
   (public_name faraday)
-  (libraries (bigarray))))
+  (libraries
+    (bigarray))
+  (flags (:standard -safe-string))))
