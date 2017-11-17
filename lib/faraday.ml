@@ -302,7 +302,7 @@ module BE = struct
   let write_double t d =
     writable t;
     ensure_space t 8;
-    Bigstring.unsafe_set_64_be t.buffer t.write_pos (Int64.bits_of_float d);
+    Bigstring.unsafe_set_64_be t.buffer ~off:t.write_pos (Int64.bits_of_float d);
     t.write_pos <- t.write_pos + 8
 end
 
