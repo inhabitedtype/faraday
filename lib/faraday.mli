@@ -72,11 +72,12 @@ val of_bigstring : bigstring -> t
 
 (** {2 Buffered Writes}
 
-    Serializers manage an internal buffer for coalescing small writes. The size
-    of this buffer is determined when the serializer is created and does not
-    change throughout the lifetime of that serializer. If the buffer does not
-    contain sufficient space to service the buffered writes of the caller, a
-    new buffer of the same size will be allocated.  *)
+    A serializer manages an internal buffer for coalescing small writes. The
+    size of this buffer is determined when the serializer is created. If the
+    buffer does not contain sufficient space to service a caller's buffered
+    write, the serializer will allocate a new buffer of the sufficient size and
+    use it for the current and subsequent writes. The old buffer will be
+    garbage collected once all of its contents have been {!flush}ed. *)
 
 val write_string : t -> ?off:int -> ?len:int -> string -> unit
 (** [write_string t ?off ?len str] copies [str] into the serializer's
