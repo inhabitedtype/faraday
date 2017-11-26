@@ -72,11 +72,12 @@ val of_bigstring : bigstring -> t
 
 (** {2 Buffered Writes}
 
-    Serializers manage an internal buffer for coalescing small writes. The size
-    of this buffer is determined when the serializer is created and does not
-    change throughout the lifetime of that serializer. If the buffer does not
-    contain sufficient space to service the buffered writes of the caller, a
-    new buffer of the same size will be allocated.  *)
+    A serializer manages an internal buffer for coalescing small writes. The
+    size of this buffer is determined when the serializer is created. If the
+    buffer does not contain sufficient space to service a caller's buffered
+    write, the serializer will allocate a new buffer of the sufficient size and
+    use it for the current and subsequent writes. The old buffer will be
+    garbage collected once all of its contents have been {!flush}ed. *)
 
 val write_string : t -> ?off:int -> ?len:int -> string -> unit
 (** [write_string t ?off ?len str] copies [str] into the serializer's
@@ -165,7 +166,10 @@ module LE : sig
 end
 
 
-(** {2 Unbuffered Writes} *)
+(** {2 Unbuffered Writes}
+
+    Unbuffered writes do not involve copying bytes to the serializers internal
+    buffer. *)
 
 val schedule_bigstring : t -> ?off:int -> ?len:int -> bigstring -> unit
 (** [schedule_bigstring t ?free ?off ?len bigstring] schedules [bigstring] to
@@ -174,15 +178,37 @@ val schedule_bigstring : t -> ?off:int -> ?len:int -> bigstring -> unit
     modified after [t] has been {!flush}ed. *)
 
 
+(** {2 Querying A Serializer's State} *)
+
+val free_bytes_in_buffer : t -> int
+(** [free_bytes_in_buffer t] returns the free space, in bytes, of the
+    serializer's write buffer. If a {write_*} call has a length that exceeds
+    this value, the serializer will allocate a new buffer that will replace the
+    serializer's internal buffer for that and subsequent calls. *)
+
+val has_pending_output : t -> bool
+(** [has_pending_output t] is [true] if [t]'s output queue is non-empty. It may
+    be the case that [t]'s queued output is being serviced by some other thread
+    of control, but has not yet completed. *)
+
+val pending_bytes : t -> int
+(** [pending_bytes t] is the size of the next write, in bytes, that [t] will
+    surface to the caller. *)
+
+
 (** {2 Control Operations} *)
 
 val yield : t -> unit
 (** [yield t] causes [t] to delay surfacing writes to the user, instead
-    returning a [`Yield] operation with an associated continuation [k]. This
-    gives the serializer an opportunity to collect additional writes before
-    sending them to the underlying device, which will increase the write batch
-    size. Barring any intervening calls to [yield t], calling the continuation
-    [k] will surface writes to the user. *)
+    returning a [`Yield]. This gives the serializer an opportunity to collect
+    additional writes before sending them to the underlying device, which will
+    increase the write batch size.
+
+    As one example, code may want to call this function if it's about to
+    release the OCaml lock and perform a blocking system call, but would like
+    to batch output across that system call. To hint to the thread of control
+    that is performing the writes on behalf of the serializer, the code might
+    call [yield t] before releasing the lock. *)
 
 val flush : t -> (unit -> unit) -> unit
 (** [flush t f] registers [f] to be called when all prior writes have been
@@ -209,23 +235,12 @@ val drain : t -> int
     bytes that were enqueued to be written and freeing any scheduled
     buffers in the process. *)
 
-val free_bytes_in_buffer : t -> int
-(** [free_bytes_in_buffer t] returns the free space, in bytes, of the
-    serializer's write buffer. If a {write_*} call has a length that exceeds
-    this value, the serializer will allocate a new buffer that will replace the
-    serializer's internal buffer for that and subsequent calls. *)
 
-val has_pending_output : t -> bool
-(** [has_pending_output t] is [true] if [t]'s output queue is non-empty. It may
-    be the case that [t]'s queued output is being serviced by some other thread
-    of control, but has not yet completed. *)
+(** {2 Running}
 
-val pending_bytes : t -> int
-(** [pending_bytes t] is the size of the next write, in bytes, that [t] will
-    surface to the caller. *)
-
-
-(** {2 Running} *)
+    Low-level operations for runing a serializer. For production use-cases,
+    consider the Async and Lwt support that this library includes before
+    attempting to use this these operations directly.  *)
 
 type 'a iovec =
   { buffer : 'a
@@ -235,17 +250,25 @@ type 'a iovec =
 
 type operation = [
   | `Writev of bigstring iovec list
-    (** Write the {iovec}s, reporting the actual number of bytes written by
-        calling {shift}. Failure to do so will result in the same bytes being
-        surfaced in a [`Writev] operation multiple times. *)
   | `Yield
-    (** Yield to other threads of control, waiting for additional output before
-        procedding. The method for achieving this is application-specific, but
-        once complete, the caller can proceed with serialization by simply
-        making another call to {!operation} or {!serialize}. *)
-  | `Close
-    (** Serialization is complete. No further output will be received. *)
-  ]
+  | `Close ]
+(** The type of operations that the serialier may wish to perform.
+  {ul
+
+  {li [`Writev iovecs]: Write the bytes in {!iovecs}s reporting the actual
+  number of bytes written by calling {!shift}. You must accurately report the
+  number of bytes written. Failure to do so will result in the same bytes being
+  surfaced in a [`Writev] operation multiple times.}
+
+  {li [`Yield]: Yield to other threads of control, waiting for additional
+  output before procedding. The method for achieving this is
+  application-specific, but once complete, the caller can proceed with
+  serialization by simply making another call to {!val:operation} or
+  {!serialize}.}
+
+  {li [`Close]: Serialization is complete. No further output will generated.
+  The action to take as a result, if any, is application-specific.}} *)
+
 
 val operation : t -> operation
 (** [operation t] is the next operation that the caller must perform on behalf
@@ -259,6 +282,13 @@ val serialize : t -> (bigstring iovec list -> [`Ok of int | `Closed]) -> [`Yield
     additional bookkeeping on the caller's behalf. In the event that [writev]
     indicates a partial write, {!serialize} will call {!yield} on the serializer
     rather than attempting successive [writev] calls. *)
+
+
+(** {2 Convenience Functions}
+
+    These functions are included for testing, debugging, and general
+    development. They are not the suggested way of driving a serializer in a
+    production setting. *)
 
 val serialize_to_string : t -> string
 (** [serialize_to_string t] runs [t], collecting the output into a string and
