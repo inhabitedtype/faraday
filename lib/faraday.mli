@@ -175,6 +175,24 @@ val schedule_bigstring : t -> ?off:int -> ?len:int -> bigstring -> unit
     modified after [t] has been {!flush}ed. *)
 
 
+(** {2 Querying A Serializer's State} *)
+
+val free_bytes_in_buffer : t -> int
+(** [free_bytes_in_buffer t] returns the free space, in bytes, of the
+    serializer's write buffer. If a {write_*} call has a length that exceeds
+    this value, the serializer will allocate a new buffer that will replace the
+    serializer's internal buffer for that and subsequent calls. *)
+
+val has_pending_output : t -> bool
+(** [has_pending_output t] is [true] if [t]'s output queue is non-empty. It may
+    be the case that [t]'s queued output is being serviced by some other thread
+    of control, but has not yet completed. *)
+
+val pending_bytes : t -> int
+(** [pending_bytes t] is the size of the next write, in bytes, that [t] will
+    surface to the caller. *)
+
+
 (** {2 Control Operations} *)
 
 val yield : t -> unit
@@ -210,20 +228,6 @@ val drain : t -> int
     bytes that were enqueued to be written and freeing any scheduled
     buffers in the process. *)
 
-val free_bytes_in_buffer : t -> int
-(** [free_bytes_in_buffer t] returns the free space, in bytes, of the
-    serializer's write buffer. If a {write_*} call has a length that exceeds
-    this value, the serializer will allocate a new buffer that will replace the
-    serializer's internal buffer for that and subsequent calls. *)
-
-val has_pending_output : t -> bool
-(** [has_pending_output t] is [true] if [t]'s output queue is non-empty. It may
-    be the case that [t]'s queued output is being serviced by some other thread
-    of control, but has not yet completed. *)
-
-val pending_bytes : t -> int
-(** [pending_bytes t] is the size of the next write, in bytes, that [t] will
-    surface to the caller. *)
 
 
 (** {2 Running} *)
