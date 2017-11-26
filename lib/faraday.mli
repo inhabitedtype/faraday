@@ -197,11 +197,15 @@ val pending_bytes : t -> int
 
 val yield : t -> unit
 (** [yield t] causes [t] to delay surfacing writes to the user, instead
-    returning a [`Yield] operation with an associated continuation [k]. This
-    gives the serializer an opportunity to collect additional writes before
-    sending them to the underlying device, which will increase the write batch
-    size. Barring any intervening calls to [yield t], calling the continuation
-    [k] will surface writes to the user. *)
+    returning a [`Yield]. This gives the serializer an opportunity to collect
+    additional writes before sending them to the underlying device, which will
+    increase the write batch size.
+
+    As one example, code may want to call this function if it's about to
+    release the OCaml lock and perform a blocking system call, but would like
+    to batch output across that system call. To hint to the thread of control
+    that is performing the writes on behalf of the serializer, the code might
+    call [yield t] before releasing the lock. *)
 
 val flush : t -> (unit -> unit) -> unit
 (** [flush t f] registers [f] to be called when all prior writes have been
