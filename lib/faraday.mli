@@ -265,6 +265,13 @@ val serialize : t -> (bigstring iovec list -> [`Ok of int | `Closed]) -> [`Yield
     indicates a partial write, {!serialize} will call {!yield} on the serializer
     rather than attempting successive [writev] calls. *)
 
+
+(** {2 Convenience Functions}
+
+    These functions are included for testing, debugging, and general
+    development. They are not the suggested way of driving a serializer in a
+    production setting. *)
+
 val serialize_to_string : t -> string
 (** [serialize_to_string t] runs [t], collecting the output into a string and
     returning it. [serialzie_to_string t] immediately closes [t] and ignores
