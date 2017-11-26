@@ -5,6 +5,9 @@ build:
 
 all: build
 
+doc:
+	jbuilder build @doc
+
 test:
 	jbuilder runtest --dev
 
