@@ -250,17 +250,25 @@ type 'a iovec =
 
 type operation = [
   | `Writev of bigstring iovec list
-    (** Write the {iovec}s, reporting the actual number of bytes written by
-        calling {shift}. Failure to do so will result in the same bytes being
-        surfaced in a [`Writev] operation multiple times. *)
   | `Yield
-    (** Yield to other threads of control, waiting for additional output before
-        procedding. The method for achieving this is application-specific, but
-        once complete, the caller can proceed with serialization by simply
-        making another call to {!operation} or {!serialize}. *)
-  | `Close
-    (** Serialization is complete. No further output will be received. *)
-  ]
+  | `Close ]
+(** The type of operations that the serialier may wish to perform.
+  {ul
+
+  {li [`Writev iovecs]: Write the bytes in {!iovecs}s reporting the actual
+  number of bytes written by calling {!shift}. You must accurately report the
+  number of bytes written. Failure to do so will result in the same bytes being
+  surfaced in a [`Writev] operation multiple times.}
+
+  {li [`Yield]: Yield to other threads of control, waiting for additional
+  output before procedding. The method for achieving this is
+  application-specific, but once complete, the caller can proceed with
+  serialization by simply making another call to {!val:operation} or
+  {!serialize}.}
+
+  {li [`Close]: Serialization is complete. No further output will generated.
+  The action to take as a result, if any, is application-specific.}} *)
+
 
 val operation : t -> operation
 (** [operation t] is the next operation that the caller must perform on behalf
