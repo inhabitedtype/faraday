@@ -166,7 +166,10 @@ module LE : sig
 end
 
 
-(** {2 Unbuffered Writes} *)
+(** {2 Unbuffered Writes}
+
+    Unbuffered writes do not involve copying bytes to the serializers internal
+    buffer. *)
 
 val schedule_bigstring : t -> ?off:int -> ?len:int -> bigstring -> unit
 (** [schedule_bigstring t ?free ?off ?len bigstring] schedules [bigstring] to
@@ -233,8 +236,11 @@ val drain : t -> int
     buffers in the process. *)
 
 
+(** {2 Running}
 
-(** {2 Running} *)
+    Low-level operations for runing a serializer. For production use-cases,
+    consider the Async and Lwt support that this library includes before
+    attempting to use this these operations directly.  *)
 
 type 'a iovec =
   { buffer : 'a
