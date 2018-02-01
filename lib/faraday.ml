@@ -184,7 +184,7 @@ let of_bigstring buffer =
 let create size =
   of_bigstring (Bigstring.create size)
 
-let writable t =
+let writable_exn t =
   if t.closed then
     failwith "cannot write to closed writer"
 
@@ -210,7 +210,7 @@ let free_bytes_in_buffer t =
   buf_len - t.write_pos
 
 let schedule_bigstring t ?(off=0) ?len a =
-  writable t;
+  writable_exn t;
   flush_buffer t;
   let len =
     match len with
@@ -228,7 +228,7 @@ let ensure_space t len =
   end
 
 let write_gen t ~length ~blit ?(off=0) ?len a =
-  writable t;
+  writable_exn t;
   let len =
     match len with
     | None     -> length a - off
@@ -254,32 +254,32 @@ let write_bigstring =
   fun t ?off ?len a -> write_gen t ~length ~blit ?off ?len a
 
 let write_char t c =
-  writable t;
+  writable_exn t;
   ensure_space t 1;
   Bigstring.unsafe_set t.buffer t.write_pos c;
   t.write_pos <- t.write_pos + 1
 
 let write_uint8 t b =
-  writable t;
+  writable_exn t;
   ensure_space t 1;
   Bigstring.unsafe_set t.buffer t.write_pos (Char.unsafe_chr b);
   t.write_pos <- t.write_pos + 1
 
 module BE = struct
   let write_uint16 t i =
-    writable t;
+    writable_exn t;
     ensure_space t 2;
     Bigstring.unsafe_set_16_be t.buffer ~off:t.write_pos i;
     t.write_pos <- t.write_pos + 2
 
   let write_uint32 t i =
-    writable t;
+    writable_exn t;
     ensure_space t 4;
     Bigstring.unsafe_set_32_be t.buffer ~off:t.write_pos i;
     t.write_pos <- t.write_pos + 4
 
   let write_uint48 t i =
-    writable t;
+    writable_exn t;
     ensure_space t 6;
     Bigstring.unsafe_set_32_be t.buffer ~off:t.write_pos
       Int64.(to_int32 (shift_right_logical i 4));
@@ -288,19 +288,19 @@ module BE = struct
     t.write_pos <- t.write_pos + 6
 
   let write_uint64 t i =
-    writable t;
+    writable_exn t;
     ensure_space t 8;
     Bigstring.unsafe_set_64_be t.buffer ~off:t.write_pos i;
     t.write_pos <- t.write_pos + 8
 
   let write_float t f =
-    writable t;
+    writable_exn t;
     ensure_space t 4;
     Bigstring.unsafe_set_32_be t.buffer ~off:t.write_pos (Int32.bits_of_float f);
     t.write_pos <- t.write_pos + 4
 
   let write_double t d =
-    writable t;
+    writable_exn t;
     ensure_space t 8;
     Bigstring.unsafe_set_64_be t.buffer ~off:t.write_pos (Int64.bits_of_float d);
     t.write_pos <- t.write_pos + 8
@@ -308,19 +308,19 @@ end
 
 module LE = struct
   let write_uint16 t i =
-    writable t;
+    writable_exn t;
     ensure_space t 2;
     Bigstring.unsafe_set_16_le t.buffer ~off:t.write_pos i;
     t.write_pos <- t.write_pos + 2
 
   let write_uint32 t i =
-    writable t;
+    writable_exn t;
     ensure_space t 4;
     Bigstring.unsafe_set_32_le t.buffer ~off:t.write_pos i;
     t.write_pos <- t.write_pos + 4
 
   let write_uint48 t i =
-    writable t;
+    writable_exn t;
     ensure_space t 6;
     Bigstring.unsafe_set_16_le t.buffer ~off:t.write_pos
       Int64.(to_int i);
@@ -329,19 +329,19 @@ module LE = struct
     t.write_pos <- t.write_pos + 6
 
   let write_uint64 t i =
-    writable t;
+    writable_exn t;
     ensure_space t 8;
     Bigstring.unsafe_set_64_le t.buffer ~off:t.write_pos i;
     t.write_pos <- t.write_pos + 8
 
   let write_float t f =
-    writable t;
+    writable_exn t;
     ensure_space t 4;
     Bigstring.unsafe_set_32_le t.buffer ~off:t.write_pos (Int32.bits_of_float f);
     t.write_pos <- t.write_pos + 4
 
   let write_double t d =
-    writable t;
+    writable_exn t;
     ensure_space t 8;
     Bigstring.unsafe_set_64_le t.buffer ~off:t.write_pos (Int64.bits_of_float d);
     t.write_pos <- t.write_pos + 8
