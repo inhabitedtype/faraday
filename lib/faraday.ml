@@ -39,6 +39,8 @@ type 'a iovec =
   ; off    : int
   ; len    : int }
 
+exception Dequeue_empty
+
 module Deque(T:sig type t val sentinel : t end) : sig
   type elem = T.t
 
@@ -94,7 +96,7 @@ end = struct
 
   let dequeue_exn t =
     if is_empty t then
-      raise Not_found
+      raise Dequeue_empty
     else
       let result = Array.unsafe_get t.elements t.front in
       Array.unsafe_set t.elements t.front sentinel;
@@ -370,7 +372,7 @@ let rec shift_buffers t written =
       shift_buffers t (written - len)
     end else
       Buffers.enqueue_front (IOVec.shift iovec written) t.scheduled
-  with Not_found ->
+  with Dequeue_empty ->
     assert (written = 0);
     if t.scheduled_pos = t.write_pos then begin
       t.scheduled_pos <- 0;
@@ -398,7 +400,7 @@ let rec shift_flushes t =
     if t.bytes_written - min_int >= threshold - min_int
     then begin f (); shift_flushes t end
     else Flushes.enqueue_front flush t.flushed
-  with Not_found ->
+  with Dequeue_empty ->
     ()
 
 let shift t written =
