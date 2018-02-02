@@ -106,7 +106,7 @@ end = struct
   let enqueue_front e t =
     (* This is in general not true for Deque data structures, but the usage
      * below ensures that there is always space to push an element back on the
-     * front. A [enqueue_front] is always preceded by a [dequeue], with no
+     * front. An [enqueue_front] is always preceded by a [dequeue], with no
      * intervening operations. *)
     assert (t.front > 0);
     t.front <- t.front - 1;
@@ -383,7 +383,7 @@ let rec shift_flushes t =
   try
     let (threshold, f) as flush = Flushes.dequeue_exn t.flushed in
     (* Edited notes from @dinosaure:
-     * 
+     *
      * The quantities [t.bytes_written] and [threshold] are always going to be
      * positive integers. Therefore, we can treat them as unsinged integers for
      * the purposes of comparision. Doing so allows us to handle overflows in
