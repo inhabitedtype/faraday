@@ -62,7 +62,8 @@ type t
 
 val create : int -> t
 (** [create len] creates a serializer with a fixed-length internal buffer of
-    length [len]. *)
+    length [len]. See the Buffered writes section for details about what happens
+    when [len] is not large enough to support a write. *)
 
 val of_bigstring : bigstring -> t
 (** [of_bigstring buf] creates a serializer, using [buf] as its internal
@@ -89,8 +90,8 @@ val write_bytes : t -> ?off:int -> ?len:int -> Bytes.t -> unit
 
 val write_bigstring : t -> ?off:int -> ?len:int -> bigstring -> unit
 (** [write_bigstring t ?off ?len bigstring] copies [bigstring] into the
-    serializer's internal buffer. It is safe to modify [bytes] after this call
-    returns.  *)
+    serializer's internal buffer. It is safe to modify [bigstring] after this
+    call returns.  *)
 
 val write_gen
   :  t
@@ -100,14 +101,15 @@ val write_gen
   -> ?len:int
   -> 'a -> unit
 (** [write_gen t ~length ~blit ?off ?len x] copies [x] into the serializer's
-    internal buffer using the provided [length] and [blit] operations. *)
+    internal buffer using the provided [length] and [blit] operations.
+    See {!Bigstring.blit} for documentation of the arguments. *)
 
 val write_char : t -> char -> unit
 (** [write_char t char] copies [char] into the serializer's internal buffer. *)
 
 val write_uint8 : t -> int -> unit
-  (** [write_uint8 t n] copies the lower 8 bits of [n] into the serializer's
-      internal buffer. *)
+(** [write_uint8 t n] copies the lower 8 bits of [n] into the serializer's
+    internal buffer. *)
 
 
 (** Big endian serializers *)
@@ -172,7 +174,7 @@ end
     buffer. *)
 
 val schedule_bigstring : t -> ?off:int -> ?len:int -> bigstring -> unit
-(** [schedule_bigstring t ?free ?off ?len bigstring] schedules [bigstring] to
+(** [schedule_bigstring t ?off ?len bigstring] schedules [bigstring] to
     be written the next time the serializer surfaces writes to the user.
     [bigstring] is not copied in this process, so [bigstring] should only be
     modified after [t] has been {!flush}ed. *)
@@ -193,7 +195,7 @@ val has_pending_output : t -> bool
 
 val pending_bytes : t -> int
 (** [pending_bytes t] is the size of the next write, in bytes, that [t] will
-    surface to the caller. *)
+    surface to the caller as a [`Writev]. *)
 
 
 (** {2 Control Operations} *)
@@ -219,16 +221,17 @@ val close : t -> unit
 (** [close t] closes [t]. All subsequent write calls will raise, and any
     pending or subsequent {!yield} calls will be ignored. If the serializer has
     any pending writes, user code will have an opportunity to service them
-    before it receives the [Close] operation. *)
+    before it receives the [Close] operation. Flush callbacks will continue to
+    be invoked while output is {!shift}ed out of [t] as needed. *)
 
 val is_closed : t -> bool
 (** [is_closed t] is [true] if [close] has been called on [t] and [false]
     otherwise. A closed [t] may still have pending output. *)
 
 val shift : t -> int -> unit
-(** [shift t n] removes the first [n] bytes in [t]'s write queue. Any scheduled
-    buffers that are contained in this span of bytes are [free()]'d, if
-    necessary. *)
+(** [shift t n] removes the first [n] bytes in [t]'s write queue. Any flush
+    callbacks registered with [t] within this span of the write queue will be
+    called. *)
 
 val drain : t -> int
 (** [drain t] removes all pending writes from [t], returning the number of
@@ -246,7 +249,8 @@ type 'a iovec =
   { buffer : 'a
   ; off    : int
   ; len    : int }
-(** A view into {!iovec.buffer} starting at {!iovec.off} and with length {!iovec.len}. *)
+(** A view into {!iovec.buffer} starting at {!iovec.off} and with length
+    {!iovec.len}. *)
 
 type operation = [
   | `Writev of bigstring iovec list
@@ -280,8 +284,8 @@ val serialize : t -> (bigstring iovec list -> [`Ok of int | `Closed]) -> [`Yield
 (** [serialize t writev] sufaces the next operation of [t] to the caller,
     handling a [`Writev] operation with [writev] function and performing an
     additional bookkeeping on the caller's behalf. In the event that [writev]
-    indicates a partial write, {!serialize} will call {!yield} on the serializer
-    rather than attempting successive [writev] calls. *)
+    indicates a partial write, {!serialize} will call {!yield} on the
+    serializer rather than attempting successive [writev] calls. *)
 
 
 (** {2 Convenience Functions}
