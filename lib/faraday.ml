@@ -104,7 +104,7 @@ end = struct
   let enqueue_front e t =
     (* This is in general not true for Deque data structures, but the usage
      * below ensures that there is always space to push an element back on the
-     * front. A [enqueue_front] is always preceded by a [dequeue], with no
+     * front. An [enqueue_front] is always preceded by a [dequeue], with no
      * intervening operations. *)
     assert (t.front > 0);
     t.front <- t.front - 1;
