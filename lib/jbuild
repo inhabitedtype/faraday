@@ -4,5 +4,5 @@
  ((name        faraday)
   (public_name faraday)
   (libraries
-    (bigarray))
+    (bigstringaf))
   (flags (:standard -safe-string))))

@@ -32,7 +32,7 @@
   ----------------------------------------------------------------------------*)
 
 
-type bigstring = Bigstring.t
+type bigstring = Bigstringaf.t
 
 type 'a iovec =
   { buffer : 'a
@@ -145,8 +145,8 @@ module Buffers = Deque(struct
   let sentinel =
     let deadbeef = "\222\173\190\239" in
     let len      = String.length deadbeef in
-    let buffer   = Bigstring.create len in
-    String.iteri (Bigstring.unsafe_set buffer) deadbeef;
+    let buffer   = Bigstringaf.create len in
+    String.iteri (Bigstringaf.unsafe_set buffer) deadbeef;
     { buffer; off = 0; len }
 end)
 module Flushes = Deque(struct
@@ -184,7 +184,7 @@ let of_bigstring buffer =
   ; yield           = false }
 
 let create size =
-  of_bigstring (Bigstring.create size)
+  of_bigstring (Bigstringaf.create size)
 
 let writable_exn t =
   if t.closed then
@@ -208,7 +208,7 @@ let flush t f =
   else Flushes.enqueue (t.bytes_received, f) t.flushed
 
 let free_bytes_in_buffer t =
-  let buf_len = Bigstring.length t.buffer in
+  let buf_len = Bigstringaf.length t.buffer in
   buf_len - t.write_pos
 
 let schedule_bigstring t ?(off=0) ?len a =
@@ -216,7 +216,7 @@ let schedule_bigstring t ?(off=0) ?len a =
   flush_buffer t;
   let len =
     match len with
-    | None     -> Bigstring.length a - off
+    | None     -> Bigstringaf.length a - off
     | Some len -> len
   in
   if len > 0 then schedule_iovec t ~off ~len a
@@ -224,7 +224,7 @@ let schedule_bigstring t ?(off=0) ?len a =
 let ensure_space t len =
   if free_bytes_in_buffer t < len then begin
     flush_buffer t;
-    t.buffer <- Bigstring.create (max (Bigstring.length t.buffer) len);
+    t.buffer <- Bigstringaf.create (max (Bigstringaf.length t.buffer) len);
     t.write_pos <- 0;
     t.scheduled_pos <- 0
   end
@@ -237,74 +237,74 @@ let write_gen t ~length ~blit ?(off=0) ?len a =
     | Some len -> len
   in
   ensure_space t len;
-  blit a off t.buffer t.write_pos len;
+  blit a ~src_off:off t.buffer ~dst_off:t.write_pos ~len;
   t.write_pos <- t.write_pos + len
 
 let write_string =
   let length   = String.length in
-  let blit     = Bigstring.blit_from_string in
+  let blit     = Bigstringaf.unsafe_blit_from_string in
   fun t ?off ?len a -> write_gen t ~length ~blit ?off ?len a
 
 let write_bytes =
   let length = Bytes.length in
-  let blit   = Bigstring.blit_from_bytes in
+  let blit   = Bigstringaf.unsafe_blit_from_bytes in
   fun t ?off ?len a -> write_gen t ~length ~blit ?off ?len a
 
 let write_bigstring =
-  let length = Bigstring.length in
-  let blit   = Bigstring.blit in
+  let length = Bigstringaf.length in
+  let blit   = Bigstringaf.unsafe_blit in
   fun t ?off ?len a -> write_gen t ~length ~blit ?off ?len a
 
 let write_char t c =
   writable_exn t;
   ensure_space t 1;
-  Bigstring.unsafe_set t.buffer t.write_pos c;
+  Bigstringaf.unsafe_set t.buffer t.write_pos c;
   t.write_pos <- t.write_pos + 1
 
 let write_uint8 t b =
   writable_exn t;
   ensure_space t 1;
-  Bigstring.unsafe_set t.buffer t.write_pos (Char.unsafe_chr b);
+  Bigstringaf.unsafe_set t.buffer t.write_pos (Char.unsafe_chr b);
   t.write_pos <- t.write_pos + 1
 
 module BE = struct
   let write_uint16 t i =
     writable_exn t;
     ensure_space t 2;
-    Bigstring.unsafe_set_16_be t.buffer ~off:t.write_pos i;
+    Bigstringaf.unsafe_set_int16_be t.buffer t.write_pos i;
     t.write_pos <- t.write_pos + 2
 
   let write_uint32 t i =
     writable_exn t;
     ensure_space t 4;
-    Bigstring.unsafe_set_32_be t.buffer ~off:t.write_pos i;
+    Bigstringaf.unsafe_set_int32_be t.buffer t.write_pos i;
     t.write_pos <- t.write_pos + 4
 
   let write_uint48 t i =
     writable_exn t;
     ensure_space t 6;
-    Bigstring.unsafe_set_32_be t.buffer ~off:t.write_pos
+    Bigstringaf.unsafe_set_int32_be t.buffer t.write_pos
       Int64.(to_int32 (shift_right_logical i 4));
-    Bigstring.unsafe_set_16_be t.buffer ~off:(t.write_pos + 2)
+    Bigstringaf.unsafe_set_int16_be t.buffer (t.write_pos + 2)
       Int64.(to_int i);
     t.write_pos <- t.write_pos + 6
 
   let write_uint64 t i =
     writable_exn t;
     ensure_space t 8;
-    Bigstring.unsafe_set_64_be t.buffer ~off:t.write_pos i;
+    Bigstringaf.unsafe_set_int64_be t.buffer t.write_pos i;
     t.write_pos <- t.write_pos + 8
 
   let write_float t f =
     writable_exn t;
     ensure_space t 4;
-    Bigstring.unsafe_set_32_be t.buffer ~off:t.write_pos (Int32.bits_of_float f);
+    Bigstringaf.unsafe_set_int32_be t.buffer t.write_pos (Int32.bits_of_float f);
     t.write_pos <- t.write_pos + 4
 
   let write_double t d =
     writable_exn t;
     ensure_space t 8;
-    Bigstring.unsafe_set_64_be t.buffer ~off:t.write_pos (Int64.bits_of_float d);
+    Bigstringaf.unsafe_set_int64_be t.buffer t.write_pos (Int64.bits_of_float d);
     t.write_pos <- t.write_pos + 8
 end
 
@@ -312,40 +312,40 @@ module LE = struct
   let write_uint16 t i =
     writable_exn t;
     ensure_space t 2;
-    Bigstring.unsafe_set_16_le t.buffer ~off:t.write_pos i;
+    Bigstringaf.unsafe_set_int16_le t.buffer t.write_pos i;
     t.write_pos <- t.write_pos + 2
 
   let write_uint32 t i =
     writable_exn t;
     ensure_space t 4;
-    Bigstring.unsafe_set_32_le t.buffer ~off:t.write_pos i;
+    Bigstringaf.unsafe_set_int32_le t.buffer t.write_pos i;
     t.write_pos <- t.write_pos + 4
 
   let write_uint48 t i =
     writable_exn t;
     ensure_space t 6;
-    Bigstring.unsafe_set_16_le t.buffer ~off:t.write_pos
+    Bigstringaf.unsafe_set_int16_le t.buffer t.write_pos
       Int64.(to_int i);
-    Bigstring.unsafe_set_32_le t.buffer ~off:(t.write_pos + 2)
+    Bigstringaf.unsafe_set_int32_le t.buffer (t.write_pos + 2)
       Int64.(to_int32 (shift_right_logical i 2));
     t.write_pos <- t.write_pos + 6
 
   let write_uint64 t i =
     writable_exn t;
     ensure_space t 8;
-    Bigstring.unsafe_set_64_le t.buffer ~off:t.write_pos i;
+    Bigstringaf.unsafe_set_int64_le t.buffer t.write_pos i;
     t.write_pos <- t.write_pos + 8
 
   let write_float t f =
     writable_exn t;
     ensure_space t 4;
-    Bigstring.unsafe_set_32_le t.buffer ~off:t.write_pos (Int32.bits_of_float f);
+    Bigstringaf.unsafe_set_int32_le t.buffer t.write_pos (Int32.bits_of_float f);
     t.write_pos <- t.write_pos + 4
 
   let write_double t d =
     writable_exn t;
     ensure_space t 8;
-    Bigstring.unsafe_set_64_le t.buffer ~off:t.write_pos (Int64.bits_of_float d);
+    Bigstringaf.unsafe_set_int64_le t.buffer t.write_pos (Int64.bits_of_float d);
     t.write_pos <- t.write_pos + 8
 end
 
@@ -443,7 +443,7 @@ let serialize_to_string t =
     let pos = ref 0 in
     List.iter (function
       | { buffer; off; len } ->
-        Bigstring.blit_to_bytes buffer off bytes !pos len;
+        Bigstringaf.unsafe_blit_to_bytes buffer ~src_off:off bytes ~dst_off:!pos ~len;
         pos := !pos + len)
     iovecs;
     shift t len;
@@ -457,17 +457,17 @@ let serialize_to_bigstring t =
   match operation t with
   | `Writev iovecs ->
     let len = IOVec.lengthv iovecs in
-    let bs = Bigstring.create len in
+    let bs = Bigstringaf.create len in
     let pos = ref 0 in
     List.iter (function
       | { buffer; off; len } ->
-        Bigstring.blit buffer off bs !pos len;
+        Bigstringaf.unsafe_blit buffer ~src_off:off bs ~dst_off:!pos ~len;
         pos := !pos + len)
     iovecs;
     shift t len;
     assert (operation t = `Close);
     bs
-  | `Close -> Bigstring.create 0
+  | `Close -> Bigstringaf.create 0
   | `Yield -> assert false
 
 let drain =
