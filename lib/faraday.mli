@@ -96,7 +96,7 @@ val write_bigstring : t -> ?off:int -> ?len:int -> bigstring -> unit
 val write_gen
   :  t
   -> length:('a -> int)
-  -> blit:('a -> int -> bigstring -> int -> int -> unit)
+  -> blit:('a -> src_off:int -> bigstring -> dst_off:int -> len:int -> unit)
   -> ?off:int
   -> ?len:int
   -> 'a -> unit

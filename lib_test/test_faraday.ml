@@ -9,8 +9,7 @@ let bigstring_of_string str =
   buf
 
 let string_of_bigstring b =
-  let module Bigstring = Faraday__Bigstring in
-  Bigstring.substring ~off:0 ~len:(Bigstring.length b) b
+  Bigstringaf.substring ~off:0 ~len:(Bigstringaf.length b) b
 
 let serialize_to_bigstring' t =
   serialize_to_bigstring t
