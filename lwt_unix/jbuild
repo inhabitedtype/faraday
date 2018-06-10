@@ -5,5 +5,5 @@
   (public_name faraday-lwt-unix)
   (wrapped false)
   (libraries
-    (faraday lwt faraday-lwt))
+    (faraday lwt lwt.unix faraday-lwt))
   (flags (:standard -safe-string))))
