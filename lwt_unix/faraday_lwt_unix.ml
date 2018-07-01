@@ -1,15 +1,19 @@
-open Lwt
-
 include Faraday_lwt
 
-let write_bigstring fd buf off len =
-  try Lwt_bytes.write fd buf off len >|= fun n -> `Ok n
-  with Unix.Unix_error (Unix.EBADF, "check_descriptor", _) -> return `Closed
+open Lwt.Infix
 
 let writev_of_fd fd =
-  (* XXX(seliopou): This function only writes the first iovec because lwt
-     currently does not expose a writev function. That system call should be
-     bound manually at some point in the future. *)
-  function
-  | []                              -> assert false
-  | { Faraday.buffer; off; len }::_ -> write_bigstring fd buffer off len
+  fun iovecs ->
+    let lwt_iovecs = Lwt_unix.IO_vectors.create () in
+    iovecs |> List.iter (fun {Faraday.buffer; off; len} ->
+      Lwt_unix.IO_vectors.append_bigarray lwt_iovecs buffer off len);
+
+    Lwt.catch
+      (fun () ->
+        Lwt_unix.writev fd lwt_iovecs
+        >|= fun n -> `Ok n)
+      (function
+      | Unix.Unix_error (Unix.EBADF, "check_descriptor", _) ->
+        Lwt.return `Closed
+      | exn ->
+        Lwt.fail exn)
