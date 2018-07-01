@@ -15,7 +15,7 @@ build-test: [
 depends: [
   "jbuilder" {build & >= "1.0+beta10"}
   "faraday-lwt"
-  "lwt"
+  "lwt" {>= "2.7.0"}
   "base-unix"
 ]
 available: [ ocaml-version >= "4.02.0" ]
