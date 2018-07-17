@@ -215,7 +215,9 @@ val yield : t -> unit
 val flush : t -> (unit -> unit) -> unit
 (** [flush t f] registers [f] to be called when all prior writes have been
     successfully completed. If [t] has no pending writes, then [f] will be
-    called immediately. *)
+    called immediately. If {!yield} was recently called on [t], then the effect
+    of the [yield] will be ignored so that client code has an opportunity to
+    write pending output, regardless of how it handles [`Yield] operations.  *)
 
 val close : t -> unit
 (** [close t] closes [t]. All subsequent write calls will raise, and any
