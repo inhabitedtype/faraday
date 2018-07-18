@@ -203,6 +203,7 @@ let flush_buffer t =
   end
 
 let flush t f =
+  t.yield <- false;
   flush_buffer t;
   if Buffers.is_empty t.scheduled then f ()
   else Flushes.enqueue (t.bytes_received, f) t.flushed
