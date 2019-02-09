@@ -10,7 +10,7 @@ type json =
   | `Array of json list ]
 
 let to_hex_digit i =
-  if i < 10 then i + 48 else i + 87
+  Char.unsafe_chr (if i < 10 then i + 48 else i + 87)
 
 let serialize_string t s =
   (* TODO: Implement proper unicode verification. *)
@@ -23,12 +23,12 @@ let serialize_string t s =
       let i = off + len in
       match String.get s i with
       | c when c <= '\031' -> (* non-visible characters have to be escaped *)
-        let i = char.to_int c in
+        let i = Char.code c in
         flush ~off ~len;
         write_string t "\\u00"; 
-        write_char   t (to_hex_digit (c lsr 4));
-        write_char   t (to_hex_digit (c land 0xf));
-        go ~off(i+1) ~len:0
+        write_char   t (to_hex_digit (i lsr 4));
+        write_char   t (to_hex_digit (i land 0xf));
+        go ~off:(i+1) ~len:0
       | '"'    -> flush ~off ~len; write_string t "\\"  ; go ~off:(i+1) ~len:0
       | '/'    -> flush ~off ~len; write_string t "\\/" ; go ~off:(i+1) ~len:0
       | '\b'   -> flush ~off ~len; write_string t "\\b" ; go ~off:(i+1) ~len:0
