@@ -39,8 +39,6 @@ type 'a iovec =
   ; off    : int
   ; len    : int }
 
-exception Dequeue_empty
-
 module Deque(T:sig type t val sentinel : t end) : sig
   type elem = T.t
 
@@ -51,7 +49,7 @@ module Deque(T:sig type t val sentinel : t end) : sig
   val is_empty : t -> bool
 
   val enqueue : elem -> t -> unit
-  val dequeue_exn : t -> elem
+  val dequeue: t -> elem option
   val enqueue_front : elem -> t -> unit
 
   val map_to_list : t -> f:(elem -> 'b) -> 'b list
@@ -94,14 +92,14 @@ end = struct
     t.elements.(t.back) <- e;
     t.back <- t.back + 1
 
-  let dequeue_exn t =
+  let dequeue t =
     if is_empty t then
-      raise Dequeue_empty
+      None
     else
       let result = Array.unsafe_get t.elements t.front in
       Array.unsafe_set t.elements t.front sentinel;
       t.front <- t.front + 1;
-      result
+      Some(result)
 
   let enqueue_front e t =
     (* This is in general not true for Deque data structures, but the usage
@@ -367,13 +365,14 @@ let yield t =
   t.yield <- true
 
 let rec shift_buffers t written =
-  try
-    let { len; _ } as iovec = Buffers.dequeue_exn t.scheduled in
+  match Buffers.dequeue t.scheduled with
+    Some(elem) ->
+    let { len; _ } as iovec = elem in
     if len <= written then begin
       shift_buffers t (written - len)
     end else
       Buffers.enqueue_front (IOVec.shift iovec written) t.scheduled
-  with Dequeue_empty ->
+  | None  ->
     assert (written = 0);
     if t.scheduled_pos = t.write_pos then begin
       t.scheduled_pos <- 0;
@@ -381,8 +380,9 @@ let rec shift_buffers t written =
     end
 
 let rec shift_flushes t =
-  try
-    let (threshold, f) as flush = Flushes.dequeue_exn t.flushed in
+  match Flushes.dequeue t.flushed with
+    Some(elem) ->
+    let (threshold, f) as flush = elem in
     (* Edited notes from @dinosaure:
      *
      * The quantities [t.bytes_written] and [threshold] are always going to be
@@ -401,7 +401,7 @@ let rec shift_flushes t =
     if t.bytes_written - min_int >= threshold - min_int
     then begin f (); shift_flushes t end
     else Flushes.enqueue_front flush t.flushed
-  with Dequeue_empty ->
+  | None ->
     ()
 
 let shift t written =
