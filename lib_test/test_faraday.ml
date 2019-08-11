@@ -1,12 +1,7 @@
 open Faraday
 
 let bigstring_of_string str =
-  let len = String.length str in
-  let buf = Bigarray.(Array1.create char c_layout len) in
-  for i = 0 to len - 1 do
-    Bigarray.Array1.unsafe_set buf i (String.unsafe_get str i)
-  done;
-  buf
+  Bigstringaf.of_string ~off:0 ~len:(String.length str) str
 
 let string_of_bigstring b =
   Bigstringaf.substring ~off:0 ~len:(Bigstringaf.length b) b
