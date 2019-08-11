@@ -5,7 +5,7 @@ open Lwt.Infix
 let writev_of_fd fd =
   fun iovecs ->
     let lwt_iovecs = Lwt_unix.IO_vectors.create () in
-    iovecs |> List.iter (fun {Faraday.buffer; off; len} ->
+    iovecs |> List.iter (fun { Faraday.IOVec.buffer; off; len} ->
       Lwt_unix.IO_vectors.append_bigarray lwt_iovecs buffer off len);
 
     Lwt.catch

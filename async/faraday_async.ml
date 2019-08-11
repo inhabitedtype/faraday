@@ -53,7 +53,7 @@ let writev_of_fd fd =
   in
   fun iovecs ->
     let iovecs = Array.of_list_map iovecs ~f:(fun iovec ->
-      let { Faraday.buffer; off = pos; len } = iovec in
+      let { Faraday.IOVec.buffer; off = pos; len } = iovec in
       Unix.IOVec.of_bigstring ~pos ~len buffer)
     in
     if Fd.supports_nonblock fd then

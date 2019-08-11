@@ -34,10 +34,30 @@
 
 type bigstring = Bigstringaf.t
 
-type 'a iovec =
-  { buffer : 'a
-  ; off    : int
-  ; len    : int }
+module IOVec = struct
+  type t =
+    { buffer : bigstring
+    ; off    : int
+    ; len    : int }
+
+  let create buffer ~off ~len =
+    { buffer; off; len }
+
+  let length t =
+    t.len
+
+  let shift { buffer; off; len } n =
+    assert (n < len);
+    { buffer; off = off + n; len = len - n }
+
+  let lengthv ts =
+    let rec loop ts acc =
+      match ts with
+      | []        -> acc
+      | iovec::ts -> loop ts (length iovec + acc)
+    in
+    loop ts 0
+end
 
 exception Dequeue_empty
 
@@ -120,34 +140,14 @@ end = struct
     !result
 end
 
-module IOVec = struct
-  let create buffer ~off ~len =
-    { buffer; off; len }
-
-  let length t =
-    t.len
-
-  let shift { buffer; off; len } n =
-    assert (n < len);
-    { buffer; off = off + n; len = len - n }
-
-  let lengthv ts =
-    let rec loop ts acc =
-      match ts with
-      | []        -> acc
-      | iovec::ts -> loop ts (length iovec + acc)
-    in
-    loop ts 0
-end
-
 module Buffers = Deque(struct
-  type t = bigstring iovec
+  type t = IOVec.t
   let sentinel =
     let deadbeef = "\222\173\190\239" in
     let len      = String.length deadbeef in
     let buffer   = Bigstringaf.create len in
     String.iteri (Bigstringaf.unsafe_set buffer) deadbeef;
-    { buffer; off = 0; len }
+    { IOVec.buffer; off = 0; len }
 end)
 module Flushes = Deque(struct
   type t = int * (unit -> unit)
@@ -167,7 +167,7 @@ type t =
   }
 
 type operation = [
-  | `Writev of bigstring iovec list
+  | `Writev of IOVec.t list
   | `Yield
   | `Close
   ]
@@ -368,7 +368,7 @@ let yield t =
 
 let rec shift_buffers t written =
   try
-    let { len; _ } as iovec = Buffers.dequeue_exn t.scheduled in
+    let { IOVec.len; _ } as iovec = Buffers.dequeue_exn t.scheduled in
     if len <= written then begin
       shift_buffers t (written - len)
     end else
@@ -443,7 +443,7 @@ let serialize_to_string t =
     let bytes = Bytes.create len in
     let pos = ref 0 in
     List.iter (function
-      | { buffer; off; len } ->
+      | { IOVec.buffer; off; len } ->
         Bigstringaf.unsafe_blit_to_bytes buffer ~src_off:off bytes ~dst_off:!pos ~len;
         pos := !pos + len)
     iovecs;
@@ -461,7 +461,7 @@ let serialize_to_bigstring t =
     let bs = Bigstringaf.create len in
     let pos = ref 0 in
     List.iter (function
-      | { buffer; off; len } ->
+      | { IOVec.buffer; off; len } ->
         Bigstringaf.unsafe_blit buffer ~src_off:off bs ~dst_off:!pos ~len;
         pos := !pos + len)
     iovecs;
