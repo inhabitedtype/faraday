@@ -1,9 +1,0 @@
-(jbuild_version 1)
-
-(library
- ((name        faraday_lwt)
-  (public_name faraday-lwt)
-  (wrapped false)
-  (libraries
-    (faraday lwt))
-  (flags (:standard -safe-string))))
