@@ -2,7 +2,7 @@ open Faraday
 
 module Operation = struct
   type t =
-    [ `Writev of Bigstringaf.t iovec list
+    [ `Writev of IOVec.t list
     | `Yield
     | `Close ]
 
@@ -13,7 +13,7 @@ module Operation = struct
     | `Writev iovecs ->
       let writev_len = List.length iovecs in
       Format.pp_print_string fmt "Writev [";
-      List.iteri (fun i { off; len; buffer } ->
+      List.iteri (fun i { IOVec.off; len; buffer } ->
         Format.fprintf fmt "%S" (Bigstringaf.substring ~off ~len buffer);
         if i < writev_len - 1 then Format.pp_print_string fmt ", ")
         iovecs;
@@ -25,7 +25,7 @@ module Operation = struct
     | `Yield, `Yield -> true
     | `Close, `Close -> true
     | `Writev xs, `Writev ys ->
-      let to_string { off; len; buffer } = Bigstringaf.substring ~off ~len buffer in
+      let to_string { IOVec.off; len; buffer } = Bigstringaf.substring ~off ~len buffer in
       let xs = List.map to_string xs in
       let ys = List.map to_string ys in
       xs = ys
@@ -36,7 +36,7 @@ module Operation = struct
     `Writev
       (List.map (fun s ->
         let len = String.length s in
-        { off = 0; len; buffer = Bigstringaf.of_string ~off:0 ~len s })
+        { IOVec.off = 0; len; buffer = Bigstringaf.of_string ~off:0 ~len s })
         ss)
   ;;
 end
