@@ -17,8 +17,8 @@ let serialize_string t s =
   let flush ~off ~len = 
     if len <> 0 then write_string t ~off ~len s in
   let rec go ~off ~len = 
-    if String.length s = off + len then
-      flush off len
+    if String.length s = off + len 
+    then flush ~off ~len
     else
       let i = off + len in
       match String.get s i with
