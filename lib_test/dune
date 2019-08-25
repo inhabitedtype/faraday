@@ -1,0 +1,10 @@
+(executables
+ (libraries alcotest faraday)
+ (modules   test_faraday)
+ (names     test_faraday))
+
+(alias
+ (name    runtest)
+ (package faraday)
+ (deps    test_faraday.exe)
+ (action  (run %{deps})))

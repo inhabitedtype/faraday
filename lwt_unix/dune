@@ -1,0 +1,5 @@
+(library
+ (name        faraday_lwt_unix)
+ (public_name faraday-lwt-unix)
+ (libraries   faraday lwt lwt.unix faraday-lwt)
+ (flags (:standard -safe-string)))

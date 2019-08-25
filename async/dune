@@ -1,0 +1,5 @@
+(library
+ (name        faraday_async)
+ (public_name faraday-async)
+ (libraries   faraday async)
+ (flags (:standard -safe-string)))
