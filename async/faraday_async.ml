@@ -59,9 +59,9 @@ let writev_of_fd fd =
     if Fd.supports_nonblock fd then
       finish
         (Fd.syscall fd ~nonblocking:true
-          (fun file_descr ->
-            Bigstring.writev_assume_fd_is_nonblocking file_descr iovecs))
+           (fun file_descr ->
+             Bigstring_unix.writev_assume_fd_is_nonblocking file_descr iovecs))
     else
       Fd.syscall_in_thread fd ~name:"writev"
-        (fun file_descr -> Bigstring.writev file_descr iovecs)
+        (fun file_descr -> Bigstring_unix.writev file_descr iovecs)
       >>= finish
