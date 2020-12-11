@@ -96,7 +96,7 @@ end = struct
 
   let dequeue_exn t =
     if is_empty t then
-      raise Dequeue_empty
+      raise_notrace Dequeue_empty
     else
       let result = Array.unsafe_get t.elements t.front in
       Array.unsafe_set t.elements t.front sentinel;
@@ -367,22 +367,23 @@ let yield t =
   t.yield <- true
 
 let rec shift_buffers t written =
-  try
-    let { len; _ } as iovec = Buffers.dequeue_exn t.scheduled in
-    if len <= written then begin
-      shift_buffers t (written - len)
-    end else
-      Buffers.enqueue_front (IOVec.shift iovec written) t.scheduled
-  with Dequeue_empty ->
+  match Buffers.dequeue_exn t.scheduled with
+  | exception Dequeue_empty ->
     assert (written = 0);
     if t.scheduled_pos = t.write_pos then begin
       t.scheduled_pos <- 0;
       t.write_pos <- 0
     end
+  | { len; _ } as iovec ->
+    if len <= written then begin
+      shift_buffers t (written - len)
+    end else
+      Buffers.enqueue_front (IOVec.shift iovec written) t.scheduled
 
 let rec shift_flushes t =
-  try
-    let (threshold, f) as flush = Flushes.dequeue_exn t.flushed in
+  match Flushes.dequeue_exn t.flushed with
+  | exception Dequeue_empty -> ()
+  | (threshold, f) as flush ->
     (* Edited notes from @dinosaure:
      *
      * The quantities [t.bytes_written] and [threshold] are always going to be
@@ -401,8 +402,6 @@ let rec shift_flushes t =
     if t.bytes_written - min_int >= threshold - min_int
     then begin f (); shift_flushes t end
     else Flushes.enqueue_front flush t.flushed
-  with Dequeue_empty ->
-    ()
 
 let shift t written =
   shift_buffers t written;
