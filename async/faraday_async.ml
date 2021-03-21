@@ -22,7 +22,10 @@ let serialize t ~yield ~writev =
       yield t >>= fun () -> loop t
     | `Close -> return ()
   in
-  try_with ~extract_exn:true (fun () -> loop t)
+  try_with
+    ~rest:`Log (* consider [`Raise] instead *)
+    ~run:`Schedule (* consider [`Now] instead *)
+    ~extract_exn:true (fun () -> loop t)
   >>| function
     | Result.Ok () -> ()
     | Result.Error exn ->
