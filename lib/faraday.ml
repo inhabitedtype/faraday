@@ -205,8 +205,8 @@ let flush_buffer t =
 let flush_with_reason t f =
   t.yield <- false;
   flush_buffer t;
-  if Buffers.is_empty t.scheduled then f `Shift
-  else Flushes.enqueue (t.bytes_received, f) t.flushed
+  if Buffers.is_empty t.scheduled then f `Nothing_pending
+  else Flushes.enqueue (t.bytes_received, (f :> [ `Shift | `Drain] -> unit)) t.flushed
 
 let flush t f = flush_with_reason t (fun _ -> f ())
 

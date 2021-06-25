@@ -42,16 +42,17 @@ module Operation = struct
 end
 
 module Flush_reason = struct
-  type t = [ `Shift | `Drain ]
+  type t = [ `Shift | `Drain | `Nothing_pending ]
 
   let pp_hum fmt t =
     match t with
-    | `Shift -> Format.pp_print_string fmt "Shift"
-    | `Drain -> Format.pp_print_string fmt "Drain"
+    | `Shift           -> Format.pp_print_string fmt "Shift"
+    | `Drain           -> Format.pp_print_string fmt "Drain"
+    | `Nothing_pending -> Format.pp_print_string fmt "Nothing_pending"
 
   let equal t t' =
     match t, t' with
-    | `Shift, `Shift | `Drain, `Drain -> true
+    | `Shift, `Shift | `Drain, `Drain | `Nothing_pending, `Nothing_pending -> true
     | _ -> false
 end
 
@@ -244,7 +245,7 @@ let test_flush () =
   let flush_reason = set_up_flush () in
   Alcotest.(check' (option flush_reason))
     ~msg:"flushes resolved immediately if no waiting bytes"
-    ~expected:(Some `Shift)
+    ~expected:(Some `Nothing_pending)
     ~actual:!flush_reason;
 
   write_string t "hello world";
