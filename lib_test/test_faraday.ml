@@ -134,7 +134,7 @@ let write =
   [ "char"           , `Quick, char
   ; "single w/ room" , `Quick, (write : unit -> unit)
   ; "single w/o room", `Quick, write ~buf_size:1
-  ; "multiple"       , `Quick, write_multiple 
+  ; "multiple"       , `Quick, write_multiple
   ]
 
 let schedule () =
@@ -217,6 +217,33 @@ let interleaved serialize =
       [`Write_char 't'; `Write_bytes "t"; `Write_string "t"])
   end ]
 
+module Test_drain = struct
+  let normal () =
+    let t = create 0x100 in
+    write_string t "hello";
+    close t;
+    Alcotest.(check' int) ~msg:"drain" ~expected:5 ~actual:(drain t)
+  ;;
+
+  let before_close () =
+    let t = create 0x100 in
+    write_string t "hello";
+    close t;
+    Alcotest.(check' int) ~msg:"drain" ~expected:5 ~actual:(drain t)
+  ;;
+
+  let nothing_pending () =
+    let t = create 0x100 in
+    Alcotest.(check' int) ~msg:"drain" ~expected:0 ~actual:(drain t)
+  ;;
+
+  let tests =
+    [ "normal", `Quick, normal
+    ; "before close", `Quick, before_close
+    ; "nothing pending", `Quick, nothing_pending
+    ]
+end
+
 let () =
   Alcotest.run "test suite"
     [ "empty output"                  , empty
@@ -224,4 +251,6 @@ let () =
     ; "write"                         , write
     ; "single schedule"               , schedule
     ; "interleaved calls (string)"    , interleaved serialize_to_string
-    ; "interleaved calls (bigstring)" , interleaved serialize_to_bigstring']
+    ; "interleaved calls (bigstring)" , interleaved serialize_to_bigstring'
+    ; "drain"                         , Test_drain.tests
+    ]
