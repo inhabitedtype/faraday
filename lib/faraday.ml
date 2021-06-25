@@ -477,7 +477,6 @@ let drain =
       let len = IOVec.lengthv iovecs in
       shift t len;
       loop t (len + acc)
-    | `Close         -> acc
-    | `Yield         -> loop t acc
+    | `Close | `Yield -> acc
   in
   fun t -> loop t 0
