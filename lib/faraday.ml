@@ -150,8 +150,8 @@ module Buffers = Deque(struct
     { buffer; off = 0; len }
 end)
 module Flushes = Deque(struct
-  type t = int * (unit -> unit)
-  let sentinel = 0, fun () -> ()
+  type t = int * ([ `Shift | `Drain ] -> unit)
+  let sentinel = 0, fun _ -> ()
 end)
 
 type t =
@@ -202,11 +202,13 @@ let flush_buffer t =
     t.scheduled_pos <- t.write_pos
   end
 
-let flush t f =
+let flush_with_reason t f =
   t.yield <- false;
   flush_buffer t;
-  if Buffers.is_empty t.scheduled then f ()
+  if Buffers.is_empty t.scheduled then f `Shift
   else Flushes.enqueue (t.bytes_received, f) t.flushed
+
+let flush t f = flush_with_reason t (fun _ -> f ())
 
 let free_bytes_in_buffer t =
   let buf_len = Bigstringaf.length t.buffer in
@@ -380,7 +382,7 @@ let rec shift_buffers t written =
     end else
       Buffers.enqueue_front (IOVec.shift iovec written) t.scheduled
 
-let rec shift_flushes t =
+let rec shift_flushes t ~reason =
   match Flushes.dequeue_exn t.flushed with
   | exception Dequeue_empty -> ()
   | (threshold, f) as flush ->
@@ -400,13 +402,16 @@ let rec shift_flushes t =
      * overflowed as similarly, just shifted down a bit.
      *)
     if t.bytes_written - min_int >= threshold - min_int
-    then begin f (); shift_flushes t end
+    then begin f reason; shift_flushes t ~reason end
     else Flushes.enqueue_front flush t.flushed
 
-let shift t written =
+let shift_internal t written ~reason =
   shift_buffers t written;
   t.bytes_written <- t.bytes_written + written;
-  shift_flushes t
+  shift_flushes t ~reason
+;;
+
+let shift t written = shift_internal t written ~reason:`Shift
 
 let operation t =
   if t.closed then begin
@@ -475,7 +480,7 @@ let drain =
     match operation t with
     | `Writev iovecs ->
       let len = IOVec.lengthv iovecs in
-      shift t len;
+      shift_internal t len ~reason:`Drain;
       loop t (len + acc)
     | `Close         -> acc
     | `Yield         -> loop t acc
