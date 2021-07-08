@@ -41,18 +41,18 @@ module Operation = struct
   ;;
 end
 
-module Flush_reason = struct
-  type t = [ `Shift | `Drain | `Nothing_pending ]
+module Flushed_reason = struct
+  type t = Flushed_reason.t
 
-  let pp_hum fmt t =
+  let pp_hum fmt (t:t) =
     match t with
-    | `Shift           -> Format.pp_print_string fmt "Shift"
-    | `Drain           -> Format.pp_print_string fmt "Drain"
-    | `Nothing_pending -> Format.pp_print_string fmt "Nothing_pending"
+    | Shift           -> Format.pp_print_string fmt "Shift"
+    | Drain           -> Format.pp_print_string fmt "Drain"
+    | Nothing_pending -> Format.pp_print_string fmt "Nothing_pending"
 
-  let equal t t' =
+  let equal (t:t) (t':t) =
     match t, t' with
-    | `Shift, `Shift | `Drain, `Drain | `Nothing_pending, `Nothing_pending -> true
+    | Shift, Shift | Drain, Drain | Nothing_pending, Nothing_pending -> true
     | _ -> false
 end
 
@@ -60,7 +60,7 @@ module Alcotest = struct
   include Alcotest
 
   let operation : Operation.t testable = testable Operation.pp_hum Operation.equal
-  let flush_reason : Flush_reason.t testable = testable Flush_reason.pp_hum Flush_reason.equal
+  let flush_reason : Flushed_reason.t testable = testable Flushed_reason.pp_hum Flushed_reason.equal
 end
 
 let test ?(buf_size=0x100) f =
@@ -245,7 +245,7 @@ let test_flush () =
   let flush_reason = set_up_flush () in
   Alcotest.(check' (option flush_reason))
     ~msg:"flushes resolved immediately if no waiting bytes"
-    ~expected:(Some `Nothing_pending)
+    ~expected:(Some Nothing_pending)
     ~actual:!flush_reason;
 
   write_string t "hello world";
@@ -258,7 +258,7 @@ let test_flush () =
   shift t 6;
   Alcotest.(check' (option flush_reason))
     ~msg:"flush during shift"
-    ~expected:(Some `Shift)
+    ~expected:(Some Shift)
     ~actual:!flush_reason;
 
   write_string t "one";
@@ -268,11 +268,11 @@ let test_flush () =
   shift t 6;
   Alcotest.(check' (option flush_reason))
     ~msg:"flush during shift past the flush point"
-    ~expected:(Some `Shift)
+    ~expected:(Some Shift)
     ~actual:!flush_reason1;
   Alcotest.(check' (option flush_reason))
     ~msg:"flush during shift past the flush point"
-    ~expected:(Some `Shift)
+    ~expected:(Some Shift)
     ~actual:!flush_reason2;
 
   write_string t "hello world";
@@ -281,7 +281,7 @@ let test_flush () =
   ignore (drain t : int);
   Alcotest.(check' (option flush_reason))
     ~msg:"flush during drain"
-    ~expected:(Some `Drain)
+    ~expected:(Some Drain)
     ~actual:!flush_reason;
 ;;
 

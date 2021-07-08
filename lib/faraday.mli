@@ -219,11 +219,22 @@ val flush : t -> (unit -> unit) -> unit
     of the [yield] will be ignored so that client code has an opportunity to
     write pending output, regardless of how it handles [`Yield] operations.  *)
 
-val flush_with_reason : t -> ([ `Shift | `Drain | `Nothing_pending ] -> unit) -> unit
+module Flushed_reason : sig
+  (** Indicates why a flush callback was called. *)
+  type t =
+    | Shift
+    (** [shift t] was called, normally indicating that bytes were written successfully. *)
+    | Drain
+    (** [drain t] was called, normally indicating that the downstream consumer of [t]'s
+        bytes stopped accepting new input. *)
+    | Nothing_pending
+    (** Passed to [f] when [flush_with_reason t f] is called when there is not any pending
+        output, so [t] is considered immediately flushed. *)
+end
+
+val flush_with_reason : t -> (Flushed_reason.t -> unit) -> unit
 (** [flush_with_reason t f] is like [flush t f], but [f] is suppplied with the reason that
-    the flush was triggered. [`Nothing_pending] means that [f] is being called immediately
-    because at the time of calling [flush], there were no unwritten bytes.
-*)
+    the callback was triggered. *)
 
 val close : t -> unit
 (** [close t] closes [t]. All subsequent write calls will raise, and any
