@@ -41,10 +41,26 @@ module Operation = struct
   ;;
 end
 
+module Flushed_reason = struct
+  type t = Flushed_reason.t
+
+  let pp_hum fmt (t:t) =
+    match t with
+    | Shift           -> Format.pp_print_string fmt "Shift"
+    | Drain           -> Format.pp_print_string fmt "Drain"
+    | Nothing_pending -> Format.pp_print_string fmt "Nothing_pending"
+
+  let equal (t:t) (t':t) =
+    match t, t' with
+    | Shift, Shift | Drain, Drain | Nothing_pending, Nothing_pending -> true
+    | _ -> false
+end
+
 module Alcotest = struct
   include Alcotest
 
   let operation : Operation.t testable = testable Operation.pp_hum Operation.equal
+  let flush_reason : Flushed_reason.t testable = testable Flushed_reason.pp_hum Flushed_reason.equal
 end
 
 let test ?(buf_size=0x100) f =
@@ -134,7 +150,7 @@ let write =
   [ "char"           , `Quick, char
   ; "single w/ room" , `Quick, (write : unit -> unit)
   ; "single w/o room", `Quick, write ~buf_size:1
-  ; "multiple"       , `Quick, write_multiple 
+  ; "multiple"       , `Quick, write_multiple
   ]
 
 let schedule () =
@@ -217,6 +233,60 @@ let interleaved serialize =
       [`Write_char 't'; `Write_bytes "t"; `Write_string "t"])
   end ]
 
+let test_flush () =
+  let t = create 0x100 in
+
+  let set_up_flush () =
+    let flush_reason = ref None in
+    flush_with_reason t (fun reason -> flush_reason := Some reason);
+    flush_reason
+  in
+
+  let flush_reason = set_up_flush () in
+  Alcotest.(check' (option flush_reason))
+    ~msg:"flushes resolved immediately if no waiting bytes"
+    ~expected:(Some Nothing_pending)
+    ~actual:!flush_reason;
+
+  write_string t "hello world";
+  let flush_reason = set_up_flush () in
+  shift t 5;
+  Alcotest.(check' (option flush_reason))
+    ~msg:"flush not yet resolved as not enough bytes shifted"
+    ~expected:None
+    ~actual:!flush_reason;
+  shift t 6;
+  Alcotest.(check' (option flush_reason))
+    ~msg:"flush during shift"
+    ~expected:(Some Shift)
+    ~actual:!flush_reason;
+
+  write_string t "one";
+  let flush_reason1 = set_up_flush () in
+  write_string t "two";
+  let flush_reason2 = set_up_flush () in
+  shift t 6;
+  Alcotest.(check' (option flush_reason))
+    ~msg:"flush during shift past the flush point"
+    ~expected:(Some Shift)
+    ~actual:!flush_reason1;
+  Alcotest.(check' (option flush_reason))
+    ~msg:"flush during shift past the flush point"
+    ~expected:(Some Shift)
+    ~actual:!flush_reason2;
+
+  write_string t "hello world";
+  close t;
+  let flush_reason = set_up_flush () in
+  ignore (drain t : int);
+  Alcotest.(check' (option flush_reason))
+    ~msg:"flush during drain"
+    ~expected:(Some Drain)
+    ~actual:!flush_reason;
+;;
+
+let flush = [ "flush", `Quick, test_flush ]
+
 let () =
   Alcotest.run "test suite"
     [ "empty output"                  , empty
@@ -224,4 +294,6 @@ let () =
     ; "write"                         , write
     ; "single schedule"               , schedule
     ; "interleaved calls (string)"    , interleaved serialize_to_string
-    ; "interleaved calls (bigstring)" , interleaved serialize_to_bigstring']
+    ; "interleaved calls (bigstring)" , interleaved serialize_to_bigstring'
+    ; "flush"                         , flush
+    ]
