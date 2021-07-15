@@ -243,46 +243,46 @@ let test_flush () =
   in
 
   let flush_reason = set_up_flush () in
-  Alcotest.(check' (option flush_reason))
-    ~msg:"flushes resolved immediately if no waiting bytes"
-    ~expected:(Some Nothing_pending)
-    ~actual:!flush_reason;
+  Alcotest.(check (option flush_reason))
+    "flushes resolved immediately if no waiting bytes"
+    (Some Nothing_pending)
+    !flush_reason;
 
   write_string t "hello world";
   let flush_reason = set_up_flush () in
   shift t 5;
-  Alcotest.(check' (option flush_reason))
-    ~msg:"flush not yet resolved as not enough bytes shifted"
-    ~expected:None
-    ~actual:!flush_reason;
+  Alcotest.(check (option flush_reason))
+    "flush not yet resolved as not enough bytes shifted"
+    None
+    !flush_reason;
   shift t 6;
-  Alcotest.(check' (option flush_reason))
-    ~msg:"flush during shift"
-    ~expected:(Some Shift)
-    ~actual:!flush_reason;
+  Alcotest.(check (option flush_reason))
+    "flush during shift"
+    (Some Shift)
+    !flush_reason;
 
   write_string t "one";
   let flush_reason1 = set_up_flush () in
   write_string t "two";
   let flush_reason2 = set_up_flush () in
   shift t 6;
-  Alcotest.(check' (option flush_reason))
-    ~msg:"flush during shift past the flush point"
-    ~expected:(Some Shift)
-    ~actual:!flush_reason1;
-  Alcotest.(check' (option flush_reason))
-    ~msg:"flush during shift past the flush point"
-    ~expected:(Some Shift)
-    ~actual:!flush_reason2;
+  Alcotest.(check (option flush_reason))
+    "flush during shift past the flush point"
+    (Some Shift)
+    !flush_reason1;
+  Alcotest.(check (option flush_reason))
+    "flush during shift past the flush point"
+    (Some Shift)
+    !flush_reason2;
 
   write_string t "hello world";
   close t;
   let flush_reason = set_up_flush () in
   ignore (drain t : int);
-  Alcotest.(check' (option flush_reason))
-    ~msg:"flush during drain"
-    ~expected:(Some Drain)
-    ~actual:!flush_reason;
+  Alcotest.(check (option flush_reason))
+    "flush during drain"
+    (Some Drain)
+    !flush_reason;
 ;;
 
 let flush = [ "flush", `Quick, test_flush ]
