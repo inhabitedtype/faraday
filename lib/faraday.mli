@@ -184,7 +184,7 @@ val schedule_bigstring : t -> ?off:int -> ?len:int -> bigstring -> unit
 
 val free_bytes_in_buffer : t -> int
 (** [free_bytes_in_buffer t] returns the free space, in bytes, of the
-    serializer's write buffer. If a {write_*} call has a length that exceeds
+    serializer's write buffer. If a [write_*] call has a length that exceeds
     this value, the serializer will allocate a new buffer that will replace the
     serializer's internal buffer for that and subsequent calls. *)
 
