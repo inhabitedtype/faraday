@@ -8,7 +8,7 @@ operations, such as the [writev][] system call, or any other platform or
 application-specific output APIs.
 
 
-[![Build Status](https://github.com/inhabitedtype/faraday/workflows/build/badge.svg)](https://github.com/inhabitedtype/faraday/actions?query=workflow%3A%22build%22)]
+[![Build Status](https://github.com/inhabitedtype/faraday/workflows/build/badge.svg)](https://github.com/inhabitedtype/faraday/actions?query=workflow%3A%22build%22)
 
 [writev]: http://man7.org/linux/man-pages/man2/writev.2.html
 
