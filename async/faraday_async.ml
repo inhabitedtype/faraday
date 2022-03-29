@@ -1,7 +1,7 @@
 open Core
 open Async
 
-module Unix = Core.Unix
+module Unix = Core_unix
 
 
 let serialize t ~yield ~writev =
