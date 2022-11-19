@@ -32,6 +32,17 @@ let serialize t ~yield ~writev =
       shutdown ();
       raise exn
 
+let limit_iovecs_length_to_iov_max iovecs =
+  match Unix.sysconf Unix.IOV_MAX with
+  | None -> iovecs
+  | Some iov_max ->
+    match Int64.to_int iov_max with
+    | None -> iovecs
+    | Some iov_max ->
+    match List.length iovecs with
+    | l when l > iov_max -> List.sub iovecs ~pos:0 ~len:iov_max
+    | _ -> iovecs
+
 let writev_of_fd fd =
   let badfd =
     failwithf "writev_of_fd got bad fd: %s" (Fd.to_string fd)
@@ -55,6 +66,7 @@ let writev_of_fd fd =
       raise exn
   in
   fun iovecs ->
+    let iovecs = limit_iovecs_length_to_iov_max iovecs in
     let iovecs = Array.of_list_map iovecs ~f:(fun iovec ->
       let { Faraday.buffer; off = pos; len } = iovec in
       Unix.IOVec.of_bigstring ~pos ~len buffer)
